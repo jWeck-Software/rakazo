@@ -4,6 +4,7 @@ import type { SecretStore } from "@rakazo/adapter-kit";
 import type { AgentImportSettings, ImportedMcpServer } from "@rakazo/adapters";
 import {
   BUILTIN_AGENT_SKILLS,
+  importedRoutineContent,
   isCatalogModelChoice,
   readAgentImportSettings,
 } from "@rakazo/adapters";
@@ -236,12 +237,12 @@ async function buildPlan(
       botId: "pending",
       name: routine.name,
       prompt: routine.prompt,
-      crons: [routine.cron],
+      crons: routine.crons,
       timezone,
       active: false,
     });
     if (!parsed.success) {
-      skipped.push({ path: `cron/jobs.json: ${routine.title}`, reason: "unsupported" });
+      skipped.push({ path: routine.path, reason: "unsupported" });
       return [];
     }
     routineInputs.set(routine.id, parsed.data);
@@ -249,7 +250,7 @@ async function buildPlan(
       {
         id: routine.id,
         title: routine.title,
-        content: `${routine.cron} (${timezone})\n\n${routine.prompt}`,
+        content: importedRoutineContent(routine.crons, timezone, routine.prompt),
         warnings: routine.warnings,
         status: { kind: "needs_setup" as const, needs: [{ kind: "turn_on" as const }] },
       },

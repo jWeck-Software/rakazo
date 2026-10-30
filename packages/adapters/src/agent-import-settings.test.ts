@@ -313,10 +313,10 @@ describe("OpenClaw settings", () => {
   it("turns user jobs into routines and skips OpenClaw's own jobs", () => {
     const settings = openclaw(false);
     expect(
-      settings.routines.map(({ name, prompt, cron, timezone, warnings }) => ({
+      settings.routines.map(({ name, prompt, crons, timezone, warnings }) => ({
         name,
         prompt,
-        cron,
+        crons,
         timezone,
         warnings,
       })),
@@ -324,7 +324,7 @@ describe("OpenClaw settings", () => {
       {
         name: "check",
         prompt: "Check the inbox",
-        cron: "*/30 * * * *",
+        crons: ["*/30 * * * *"],
         timezone: null,
         // The interval's own start time is lost: it now runs on the half hour.
         warnings: ["changed_schedule"],
@@ -332,14 +332,14 @@ describe("OpenClaw settings", () => {
       {
         name: "morning",
         prompt: "Summarise my day",
-        cron: "0 9 * * *",
+        crons: ["0 9 * * *"],
         timezone: "Asia/Kolkata",
         warnings: ["dropped_settings"],
       },
       {
         name: "evening",
         prompt: "Wrap up",
-        cron: "0 18 * * *",
+        crons: ["0 18 * * *"],
         // An unknown time zone falls back to the space's, and says so.
         timezone: null,
         warnings: ["changed_schedule"],
@@ -389,9 +389,9 @@ describe("Hermes settings", () => {
     });
     expect(settings.mcpServers.map((server) => server.config.slug)).toEqual(["docs", "files"]);
     expect(settings.mcpServers[1]!.warnings).toEqual(["dropped_settings", "local_path"]);
-    expect(settings.routines.map((routine) => [routine.name, routine.cron])).toEqual([
-      ["morning", "0 9 * * *"],
-      ["check", "0 */2 * * *"],
+    expect(settings.routines.map((routine) => [routine.name, routine.crons])).toEqual([
+      ["morning", ["0 9 * * *"]],
+      ["check", ["0 */2 * * *"]],
     ]);
     expect(settings.skipped).toEqual([
       { path: "cron/jobs.json: later", reason: "unsupported" },

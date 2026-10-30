@@ -49,7 +49,9 @@ export type ImportedRoutine = {
   content: string;
   name: string;
   prompt: string;
-  cron: string;
+  crons: string[];
+  /** Where it came from, as the skipped list names it. */
+  path: string;
   /** The job's own IANA timezone, when it has one. */
   timezone: string | null;
   warnings: AgentImportWarning[];
@@ -67,6 +69,7 @@ export { normalizeImportProvider, parseDotEnv };
 
 const isObject = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+const ROUTINE_NAME_MAX_LENGTH = 80;
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 /**
@@ -424,7 +427,10 @@ function routine(
   droppedSettings: boolean,
   interval: boolean,
 ): JobResult {
-  const name = (text(job.name) || text(job.displayName) || "Routine").slice(0, 80);
+  const name = (text(job.name) || text(job.displayName) || "Routine").slice(
+    0,
+    ROUTINE_NAME_MAX_LENGTH,
+  );
   if (!prompt || !cron || !validCron(cron)) return { reason: "unsupported" };
   const timezone = tz && isValidTimeZone(tz) ? tz : null;
   // An interval becomes clock-aligned cron (its start time is lost), and an unknown time
@@ -434,14 +440,25 @@ function routine(
     title: name,
     name,
     prompt,
-    cron,
+    crons: [cron],
+    path: `cron/jobs.json: ${name}`,
     timezone,
     warnings: [
       ...(droppedSettings ? (["dropped_settings"] as const) : []),
       ...(changed ? (["changed_schedule"] as const) : []),
     ],
-    content: `${cron}${timezone ? ` (${timezone})` : ""}\n\n${prompt}`,
+    content: importedRoutineContent([cron], timezone, prompt),
   };
+}
+
+/** Schedule and prompt, as the preview shows them. */
+export function importedRoutineContent(
+  crons: string[],
+  timezone: string | null,
+  prompt: string,
+): string {
+  if (!crons.length) return prompt;
+  return `${crons.join(", ")}${timezone ? ` (${timezone})` : ""}\n\n${prompt}`;
 }
 
 /** Null unless a cron fires at exactly that interval. */
