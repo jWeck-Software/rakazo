@@ -351,12 +351,12 @@ function sortDetails(answer: { status: number; body: unknown }): DetailsAnswer {
     .safeParse(answer.body);
   const { code = "", message = "" } = fields.success ? fields.data : {};
   const text = JSON.stringify(answer.body) ?? "";
+  if (answer.status === 401 || code === "unauthenticated" || text.includes("ERROR_NOT_LOGGED_IN")) {
+    return { kind: "unauthenticated" };
+  }
   // Signed in, but the account has no Grok Bot: signing in again would not help.
   if (/requires an ultra|premium .*seat/i.test(message) || text.includes("ERROR_UNAUTHORIZED")) {
     return { kind: "needs_plan" };
-  }
-  if (answer.status === 401 || code === "unauthenticated" || text.includes("ERROR_NOT_LOGGED_IN")) {
-    return { kind: "unauthenticated" };
   }
   if (answer.status === 404 || code === "not_found") return { kind: "not_found" };
   if (answer.status < 200 || answer.status >= 300) return { kind: "failed" };
