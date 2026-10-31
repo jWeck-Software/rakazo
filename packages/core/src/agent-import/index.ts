@@ -17,7 +17,14 @@ import {
 } from "./config.js";
 import { looksLikeCredential } from "./credentials.js";
 import { isAgentDocument, parseAgentDocument } from "./document.js";
-import { grokPlan, isGrokTemplate, isGrokTemplateFile, readGrokBot } from "./grok.js";
+import type { GrokTemplateKind } from "./grok.js";
+import {
+  GROK_BOT_FILE,
+  GROK_FOLDER_SIGNATURE,
+  grokPlan,
+  isGrokTemplateFile,
+  readGrokBot,
+} from "./grok.js";
 import {
   BUNDLED_MANIFEST,
   bundledSkillNames,
@@ -97,6 +104,23 @@ const AGENT_SIGNATURES = new Set([
   ".hermes.md",
 ]);
 
+/** A template folder shares these with OpenClaw; any other agent file is OpenClaw's or Hermes'. */
+const GROK_FOLDER_AGENT_FILES = new Set(["AGENTS.md", "MEMORY.md"]);
+
+/** Never a folder holding OpenClaw's or Hermes' own files, which stays theirs. */
+function grokTemplate(paths: ReadonlySet<string>, root: string): GrokTemplateKind | null {
+  if (root === ".openclaw" || root === ".hermes") return null;
+  const agentFiles = [...paths].filter(
+    (path) =>
+      !isSkillPath(path) && (isAgentImportCandidate(path) || /^memor(?:y|ies)\//.test(path)),
+  );
+  if (paths.has(GROK_BOT_FILE) && !agentFiles.length) return "link";
+  return paths.has(GROK_FOLDER_SIGNATURE) &&
+    agentFiles.every((path) => GROK_FOLDER_AGENT_FILES.has(path))
+    ? "folder"
+    : null;
+}
+
 /** Decides from names alone, before anything is read or sent. */
 export function isAgentHome(paths: readonly string[]): boolean {
   if (paths.some((path) => path.startsWith(".openclaw/") || path.startsWith(".hermes/"))) {
@@ -136,10 +160,6 @@ export function agentImportFolder(
     (path) => [path, shared ? path.slice(first.length + 1) : path] as const,
   );
   const root = shared ? first : "";
-  const grok = isGrokTemplate(new Set(relative.map(([, path]) => path)));
-  const candidate = (path: string) =>
-    (isAgentImportCandidate(path) || (grok && isGrokTemplateFile(path))) &&
-    !(bundled && isBundledSkill(path, bundled));
   const workspaces = new Set(
     relative.flatMap(([, path]) => {
       const [folder = "", ...rest] = path.split("/");
@@ -148,6 +168,13 @@ export function agentImportFolder(
         : [];
     }),
   );
+  // A workspace folder makes it an OpenClaw home.
+  const grok = workspaces.size
+    ? null
+    : grokTemplate(new Set(relative.map(([, path]) => path)), root);
+  const candidate = (path: string) =>
+    (isAgentImportCandidate(path) || (grok !== null && isGrokTemplateFile(path, grok))) &&
+    !(bundled && isBundledSkill(path, bundled));
   const ownFiles = relative.some(
     ([, path]) => WORKSPACE_FILES.has(path) || path.startsWith("memories/"),
   );
@@ -374,7 +401,7 @@ function detectSource(
   ) {
     return "hermes";
   }
-  if (isGrokTemplate(paths)) return "grok";
+  if (grokTemplate(paths, root)) return "grok";
   return [...paths].some((path) => path.endsWith(".md")) ? "openclaw" : null;
 }
 

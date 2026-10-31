@@ -28,19 +28,20 @@ type GrokTemplate = NonNullable<GrokBot["template"]>;
 
 /** What the template route sends: the bot, with its skills as SKILL.md files beside it. */
 export const GROK_BOT_FILE = "grok-bot.json";
-/** Only the folder converter writes it; an OpenClaw or Hermes home never has it. */
-const FOLDER_SIGNATURE = ".pi/APPEND_SYSTEM.md";
-const FOLDER_FILES = new Set([FOLDER_SIGNATURE, "README.md", "CONNECTORS.md"]);
+/** The folder converter writes it, and so can any Pi project. */
+export const GROK_FOLDER_SIGNATURE = ".pi/APPEND_SYSTEM.md";
+const FOLDER_FILES = new Set([GROK_FOLDER_SIGNATURE, "README.md", "CONNECTORS.md"]);
 const ROUTINE_FILE = /^routines\/([^/]+)\.md$/;
 const SHARE_ID = /^[A-Za-z0-9_-]{21}$/;
 
-export function isGrokTemplate(paths: ReadonlySet<string>): boolean {
-  return paths.has(GROK_BOT_FILE) || (paths.has(FOLDER_SIGNATURE) && !paths.has("SOUL.md"));
-}
+/** By link: `grok-bot.json` and its skills. As a folder: the converter's files. */
+export type GrokTemplateKind = "link" | "folder";
 
-/** Read only from a template; skills, AGENTS.md and MEMORY.md are read from any folder. */
-export function isGrokTemplateFile(path: string): boolean {
-  return FOLDER_FILES.has(path) || ROUTINE_FILE.test(path);
+/** Read only from that kind of template; skills, AGENTS.md and MEMORY.md are read from any folder. */
+export function isGrokTemplateFile(path: string, kind: GrokTemplateKind): boolean {
+  return kind === "link"
+    ? path === GROK_BOT_FILE
+    : FOLDER_FILES.has(path) || ROUTINE_FILE.test(path);
 }
 
 /** The id in `https://x.ai/bot/<id>` (www, a trailing slash or a query allowed) or `grokbot://app/v1/bot-template?id=<id>`. */
