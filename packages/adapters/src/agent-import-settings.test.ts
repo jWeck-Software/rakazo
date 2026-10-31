@@ -1,4 +1,11 @@
-import { agentImportUpload, readAgentImportFolder } from "@rakazo/core";
+import type { AgentImportFile } from "@rakazo/contracts";
+import { GrokRecipeSchema } from "@rakazo/contracts";
+import {
+  agentImportUpload,
+  grokBotFiles,
+  grokBotFromRecipe,
+  readAgentImportFolder,
+} from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import {
   intervalCron,
@@ -661,5 +668,172 @@ describe("credentials inside MCP URLs and arguments", () => {
       { path: "config.yaml: flag", reason: "unsupported" },
     ]);
     expect(JSON.stringify(settings)).not.toContain("placeholder-");
+  });
+});
+
+describe("Grok Bot routines", () => {
+  const fires = (prompt: string, ...triggers: string[]) =>
+    `${prompt}\n\nFires on:\n${triggers.map((trigger) => `- ${trigger}`).join("\n")}\n\nAsk the importing user for:\n- Timezone`;
+  const routines = [
+    {
+      slug: "shift-summary",
+      name: "Shift summary",
+      content: fires(
+        "Summarise the shift.",
+        "cron `CRON_TZ=America/New_York 0 18 * * 1-5`",
+        "cron `0 18 * * 1-5`",
+        "cron `0 6 * * 6`",
+      ),
+    },
+    { slug: "arrival-ping", name: "Arrival ping", content: fires("Greet the crew.", "webhook") },
+    {
+      slug: "berth-audit",
+      name: "Berth audit",
+      content: fires("Audit the berths.", "cron `30 9 * * 1`", "slack message"),
+    },
+    {
+      slug: "broken-clock",
+      name: "Broken clock",
+      content: fires("Never runs.", "cron `61 * * * *`"),
+    },
+  ];
+  const expected = [
+    {
+      name: "Arrival ping",
+      path: "routines/arrival-ping.md",
+      prompt: "Greet the crew.",
+      crons: [],
+      warnings: ["changed_schedule"],
+    },
+    {
+      name: "Berth audit",
+      path: "routines/berth-audit.md",
+      prompt: "Audit the berths.",
+      crons: ["30 9 * * 1"],
+      warnings: ["changed_schedule"],
+    },
+    {
+      name: "Broken clock",
+      path: "routines/broken-clock.md",
+      prompt: "Never runs.",
+      crons: [],
+      warnings: ["changed_schedule"],
+    },
+    {
+      name: "Shift summary",
+      path: "routines/shift-summary.md",
+      prompt: "Summarise the shift.",
+      crons: ["0 18 * * 1-5", "0 6 * * 6"],
+      warnings: [],
+    },
+  ].map((routine) => ({ ...routine, timezone: null }));
+
+  const settingsOf = (files: AgentImportFile[]) => {
+    const folder = readAgentImportFolder(files, { includeSecrets: false });
+    expect(folder?.source).toBe("grok");
+    return readAgentImportSettings(folder!, { includeSecrets: true });
+  };
+  const brief = (settings: ReturnType<typeof settingsOf>) =>
+    settings.routines.map(({ name, path, prompt, crons, timezone, warnings }) => ({
+      name,
+      path,
+      prompt,
+      crons,
+      timezone,
+      warnings,
+    }));
+
+  it("keeps a template's schedules in the importing user's time zone and flags the rest", () => {
+    const files = grokBotFiles(
+      grokBotFromRecipe(GrokRecipeSchema.parse({ profile: { name: "Harbor Desk" }, routines }), {
+        url: "https://x.ai/bot/AAAAAAAAAAAAAAAAAAAA1",
+        name: "Harbor Desk",
+        creator: null,
+      }),
+    );
+    const settings = settingsOf(files);
+    expect(brief(settings)).toEqual(expected);
+    expect(settings.routines.at(-1)?.content).toBe(
+      "0 18 * * 1-5, 0 6 * * 6\n\nSummarise the shift.",
+    );
+    expect(settings).toMatchObject({ model: null, mcpServers: [], apiKeys: [], skipped: [] });
+    expect(settings.keyValues.size).toBe(0);
+  });
+
+  it("reads the same routines from a template folder", () => {
+    const files: AgentImportFile[] = [
+      { path: "harbor-desk/.pi/APPEND_SYSTEM.md", content: "# Harbor Desk\n" },
+      { path: "harbor-desk/AGENTS.md", content: "# Harbor Desk\n\nPlans dock slots.\n" },
+      ...routines.map((routine) => ({
+        path: `harbor-desk/routines/${routine.slug}.md`,
+        content: `# Routine: ${routine.name}\n\n> Invented summary.\n\n${routine.content}\n`,
+      })),
+    ];
+    expect(brief(settingsOf(files))).toEqual(expected);
+  });
+
+  it("drops schedules an uploaded grok-bot.json cannot run", () => {
+    const file = {
+      name: "Bot",
+      title: "",
+      description: "",
+      profile: ["Be brief."],
+      notes: [],
+      skills: [],
+      routines: [
+        {
+          name: "r",
+          slug: "../../x",
+          prompt: "p",
+          crons: ["* * * * *", "bad cron", "0 0 31 2 *"],
+          otherTriggers: false,
+        },
+      ],
+      connectors: [],
+      gettingStarted: null,
+      template: null,
+    };
+    const settings = settingsOf([{ path: "t/grok-bot.json", content: JSON.stringify(file) }]);
+    expect(settings.routines.map(({ crons, warnings }) => ({ crons, warnings }))).toEqual([
+      { crons: ["* * * * *"], warnings: ["changed_schedule"] },
+    ]);
+  });
+
+  it("leaves an OpenClaw workspace with a Pi folder its own settings", () => {
+    const files = agentImportUpload(
+      [
+        ["AGENTS.md", "# Rules\n\nBe brief.\n"],
+        ["USER.md", "Prefers metric units.\n"],
+        [".pi/APPEND_SYSTEM.md", "Extra.\n"],
+        [
+          "openclaw.json",
+          JSON.stringify({
+            agents: { defaults: { model: { primary: "openrouter/anthropic/claude-sonnet-4" } } },
+            mcp: { servers: { docs: { url: "https://mcp.example.test/mcp" } } },
+          }),
+        ],
+        [
+          "cron/jobs.json",
+          JSON.stringify({
+            jobs: [
+              {
+                name: "morning",
+                schedule: { kind: "cron", expr: "0 9 * * *" },
+                payload: { kind: "agentTurn", message: "Summarise my day" },
+              },
+            ],
+          }),
+        ],
+      ].map(([home, content]) => ({ path: `ws/${home}`, home: home!, content: content! })),
+      { includeSecrets: false },
+    );
+    const folder = readAgentImportFolder(files, { includeSecrets: false });
+    expect(folder?.source).toBe("openclaw");
+    const settings = readAgentImportSettings(folder!, { includeSecrets: false });
+    expect({
+      model: settings.model?.modelId,
+      mcp: settings.mcpServers.map((server) => server.title),
+      routines: settings.routines.map((routine) => routine.name),
+    }).toEqual({ model: "anthropic/claude-sonnet-4", mcp: ["docs"], routines: ["morning"] });
   });
 });
