@@ -126,8 +126,10 @@ choose the collections bots may use. A Space that keeps its own vault connects s
 
 Use a Vaultwarden account made for Rakazo and share only the collections bots need with it. Rakazo
 uses the master password once to unlock the account's key, stores that key and the API key encrypted
-like other credentials, and discards the password. Rotating the API key or disabling the account in
-Vaultwarden ends access; changing the master password alone does not.
+like other credentials, and discards the password. To end access at once, rotate the account's API key
+and then sign out all of its sessions in Vaultwarden; rotating the key alone leaves a session Rakazo
+already holds working for up to two hours. Changing the master password does not end access, because
+the account's key stays the same.
 
 Each login in the chosen collections that has a password and an HTTPS address appears in the vault
 under a name derived from its title, with its first HTTPS address as the origin. Logins that ask for
@@ -135,11 +137,12 @@ the master password again before filling are left out, and so are logins over th
 100. Rakazo stores only the name, origin and a pointer: the value is fetched from Vaultwarden and
 decrypted when a bot fills it, and it is held in memory for at most 30 seconds. The list is refreshed
 when you connect or change collections and every 15 minutes, so a login removed in Vaultwarden stops
-working at once and leaves the list at the next refresh.
+working within 30 seconds and leaves the list at the next refresh.
 
 Bots fill these logins with `fill_secret` exactly like saved ones, and the same redaction applies.
-Values are never shown in Rakazo, even when Vaultwarden would let the account see the password, and
-they cannot be replaced or removed here: manage them in Vaultwarden, or change the chosen collections.
+Values are never shown in Rakazo, and they cannot be replaced or removed here: manage them in
+Vaultwarden, or change the chosen collections. Logins in a collection that hides passwords still fill,
+as they do in Vaultwarden's browser extension.
 If Vaultwarden cannot be reached when a run starts, Rakazo cannot redact those passwords, so that
 run's computer tools are paused while chat and other tools keep working.
 
