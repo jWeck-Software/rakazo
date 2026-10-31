@@ -3044,6 +3044,14 @@ msgstr "אירוע Git"
 msgid "Go home"
 msgstr "לדף הבית"
 
+#: src/lib/agent-import-errors.ts
+msgid "Grok Bot could not be reached. Try again."
+msgstr "אין גישה ל-Grok Bot. יש לנסות שוב."
+
+#: src/pages/shell/agent-import.tsx
+msgid "Grok Bot link"
+msgstr "קישור ל-Grok Bot"
+
 #: src/lib/identity-display.ts
 #: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/shell/chat-header.tsx
@@ -4052,8 +4060,8 @@ msgid "No models listed."
 msgstr "לא נמצאו מודלים ברשימה."
 
 #: src/pages/shell/agent-import.tsx
-msgid "No OpenClaw, Hermes or agent document found."
-msgstr "לא נמצאו קבצי OpenClaw, Hermes או מסמך סוכן."
+msgid "No OpenClaw, Hermes, Grok Bot or agent document found."
+msgstr "לא נמצאו קבצי OpenClaw, Hermes, Grok Bot או מסמך סוכן."
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "No remote MCP servers found"
@@ -4215,6 +4223,7 @@ msgstr ""
 
 #: src/components/markdown-link-prompt.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
+#: src/pages/shell/agent-import.tsx
 #: src/pages/shell/computer-panel.tsx
 #: src/pages/shell/import-setup-card.tsx
 #: src/pages/shell/message-view.tsx
@@ -4275,8 +4284,8 @@ msgid "OpenAI-compatible server URL"
 msgstr "כתובת URL של שרת תואם OpenAI"
 
 #: src/pages/shell/agent-import.tsx
-msgid "OpenClaw or Hermes"
-msgstr "OpenClaw או Hermes"
+msgid "OpenClaw, Hermes or Grok Bot"
+msgstr "OpenClaw, Hermes או Grok Bot"
 
 #: src/components/SignupSurvey.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -5394,6 +5403,14 @@ msgstr "התחברות ל-Rakazo"
 msgid "Sign in to your existing account to link SSO"
 msgstr "יש להתחבר לחשבון הקיים כדי לקשר SSO"
 
+#: src/pages/shell/agent-import.tsx
+msgid "Sign in with Cursor"
+msgstr "התחברות עם Cursor"
+
+#: src/lib/agent-import-errors.ts
+msgid "Sign in with Cursor again."
+msgstr "יש להתחבר שוב עם Cursor."
+
 #: src/components/PasskeySignIn.tsx
 msgid "Sign in with passkey"
 msgstr "כניסה עם מפתח גישה"
@@ -5401,6 +5418,10 @@ msgstr "כניסה עם מפתח גישה"
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
 msgstr "אפשר להתחבר עם המנוי, או לבדוק את מפתח ה-API במקום."
+
+#: src/pages/shell/agent-import.tsx
+msgid "Sign out"
+msgstr "התנתקות"
 
 #: src/pages/Auth.tsx
 #: src/pages/Welcome.tsx
@@ -5410,6 +5431,10 @@ msgstr "הרשמה"
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Sign-in cancelled. Try again."
 msgstr ""
+
+#: src/pages/shell/agent-import.tsx
+msgid "Signed in to Cursor"
+msgstr "מחובר ל-Cursor"
 
 #: src/components/VaultSettings.tsx
 msgid "Site"
@@ -5867,6 +5892,10 @@ msgstr "פעולה זו מוחקת את כל {0} הגרסאות של התוצר.
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is not valid UTF-8 text."
 msgstr "הקובץ אינו טקסט UTF-8 תקין."
+
+#: src/lib/agent-import-errors.ts
+msgid "This Grok Bot link was not found."
+msgstr "הקישור ל-Grok Bot לא נמצא."
 
 #: src/lib/agent-import-errors.ts
 msgid "This import was already used. Choose the files again."
@@ -6483,6 +6512,10 @@ msgstr "השליטה אצלך"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Anthropic"
+
+#: src/lib/agent-import-errors.ts
+msgid "Your Cursor account needs a plan with Grok Bot."
+msgstr "חשבון ה-Cursor צריך תוכנית שכוללת Grok Bot."
 
 #: src/pages/SpaceSettingOverrides.tsx
 msgid "Your defaults"

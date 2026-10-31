@@ -3044,6 +3044,14 @@ msgstr ""
 msgid "Go home"
 msgstr "होम पर जाएँ"
 
+#: src/lib/agent-import-errors.ts
+msgid "Grok Bot could not be reached. Try again."
+msgstr "Grok Bot से संपर्क नहीं हो सका। दोबारा कोशिश करें।"
+
+#: src/pages/shell/agent-import.tsx
+msgid "Grok Bot link"
+msgstr "Grok Bot लिंक"
+
 #: src/lib/identity-display.ts
 #: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/shell/chat-header.tsx
@@ -4052,8 +4060,8 @@ msgid "No models listed."
 msgstr "कोई मॉडल सूचीबद्ध नहीं।"
 
 #: src/pages/shell/agent-import.tsx
-msgid "No OpenClaw, Hermes or agent document found."
-msgstr "कोई OpenClaw, Hermes या एजेंट दस्तावेज़ नहीं मिला।"
+msgid "No OpenClaw, Hermes, Grok Bot or agent document found."
+msgstr "कोई OpenClaw, Hermes, Grok Bot या एजेंट दस्तावेज़ नहीं मिला।"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "No remote MCP servers found"
@@ -4215,6 +4223,7 @@ msgstr ""
 
 #: src/components/markdown-link-prompt.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
+#: src/pages/shell/agent-import.tsx
 #: src/pages/shell/computer-panel.tsx
 #: src/pages/shell/import-setup-card.tsx
 #: src/pages/shell/message-view.tsx
@@ -4275,8 +4284,8 @@ msgid "OpenAI-compatible server URL"
 msgstr "OpenAI-संगत सर्वर URL"
 
 #: src/pages/shell/agent-import.tsx
-msgid "OpenClaw or Hermes"
-msgstr "OpenClaw या Hermes"
+msgid "OpenClaw, Hermes or Grok Bot"
+msgstr "OpenClaw, Hermes या Grok Bot"
 
 #: src/components/SignupSurvey.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -5394,6 +5403,14 @@ msgstr "Rakazo में साइन इन करें"
 msgid "Sign in to your existing account to link SSO"
 msgstr "SSO लिंक करने के लिए अपने मौजूदा खाते में साइन इन करें"
 
+#: src/pages/shell/agent-import.tsx
+msgid "Sign in with Cursor"
+msgstr "Cursor से साइन इन करें"
+
+#: src/lib/agent-import-errors.ts
+msgid "Sign in with Cursor again."
+msgstr "Cursor से दोबारा साइन इन करें।"
+
 #: src/components/PasskeySignIn.tsx
 msgid "Sign in with passkey"
 msgstr "पासकी से साइन इन करें"
@@ -5401,6 +5418,10 @@ msgstr "पासकी से साइन इन करें"
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
 msgstr "सब्सक्रिप्शन से साइन इन करें, या इसके बजाय API कुंजी का परीक्षण करें।"
+
+#: src/pages/shell/agent-import.tsx
+msgid "Sign out"
+msgstr "साइन आउट करें"
 
 #: src/pages/Auth.tsx
 #: src/pages/Welcome.tsx
@@ -5410,6 +5431,10 @@ msgstr "साइन अप करें"
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Sign-in cancelled. Try again."
 msgstr ""
+
+#: src/pages/shell/agent-import.tsx
+msgid "Signed in to Cursor"
+msgstr "Cursor में साइन इन है"
 
 #: src/components/VaultSettings.tsx
 msgid "Site"
@@ -5867,6 +5892,10 @@ msgstr ""
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is not valid UTF-8 text."
 msgstr ""
+
+#: src/lib/agent-import-errors.ts
+msgid "This Grok Bot link was not found."
+msgstr "यह Grok Bot लिंक नहीं मिला।"
 
 #: src/lib/agent-import-errors.ts
 msgid "This import was already used. Choose the files again."
@@ -6483,6 +6512,10 @@ msgstr "नियंत्रण आपके पास है"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "आपका Anthropic"
+
+#: src/lib/agent-import-errors.ts
+msgid "Your Cursor account needs a plan with Grok Bot."
+msgstr "आपके Cursor खाते को Grok Bot वाले प्लान की ज़रूरत है।"
 
 #: src/pages/SpaceSettingOverrides.tsx
 msgid "Your defaults"

@@ -24,6 +24,7 @@ vi.mock("../../lib/rpc", () => ({
       importPreview: (input: unknown) => importPreview(input),
       importCreate: (input: unknown) => importCreate(input),
     },
+    grokImport: { cursor: async () => ({ status: "signed_out" }) },
   },
 }));
 

@@ -114,10 +114,14 @@ test("imports an OpenClaw folder and another assistant's document as new bots", 
 
   const panel = await openImport(page);
   const choose = panel.getByTestId("agent-import-choose");
-  await expect(choose.getByRole("heading")).toHaveText(["OpenClaw or Hermes", "Another assistant"]);
+  await expect(choose.getByRole("heading")).toHaveText([
+    "OpenClaw, Hermes or Grok Bot",
+    "Another assistant",
+  ]);
   await expect(choose.getByRole("button")).toHaveText([
     "Choose folder",
     "Choose backup",
+    "Open",
     "Copy prompt",
     "Continue",
     "Choose file",
@@ -126,7 +130,9 @@ test("imports an OpenClaw folder and another assistant's document as new bots", 
 
   await choose.getByRole("textbox", { name: "Paste the reply" }).fill("Just chatting.");
   await choose.getByRole("button", { name: "Continue" }).click();
-  await expect(panel.getByRole("alert")).toHaveText("No OpenClaw, Hermes or agent document found.");
+  await expect(panel.getByRole("alert")).toHaveText(
+    "No OpenClaw, Hermes, Grok Bot or agent document found.",
+  );
   await captureScreenshot(page, testInfo, "agent-import-error");
 
   const home = testInfo.outputPath("openclaw-home");

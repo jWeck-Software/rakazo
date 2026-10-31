@@ -8,8 +8,10 @@ import type {
   AgentImportWarning,
   Bot,
   ComputerMode,
+  CursorStatus,
 } from "@rakazo/contracts";
 import {
+  agentImportErrorReason,
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_INSTRUCTIONS_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
@@ -24,17 +26,21 @@ import {
   agentImportUpload,
   chooseAgentImportFiles,
   combineImportedInstructions,
+  grokShareId,
   hasAgentImportSecrets,
   looksLikeCredential,
   openAgentImportArchive,
 } from "@rakazo/core";
 import {
   Button,
+  buttonVariants,
   Checkbox,
+  cn,
   Input,
   Label,
   NativeSelect,
   NativeSelectOption,
+  Spinner,
   Textarea,
 } from "@rakazo/ui-web";
 import {
@@ -62,6 +68,9 @@ const STATUS_WARNINGS: ReadonlySet<AgentImportWarning> = new Set([
 
 const sectionClass = "mt-6";
 const headingClass = "text-sm text-foreground";
+const CURSOR_POLL_MS = 2_000;
+/** The refusal whose copy says a sign-in ended without one. */
+const SIGNED_OUT_AGAIN = { data: { reason: "cursor_signed_out" } };
 
 export function AgentImportForm({
   onClose,
@@ -96,6 +105,18 @@ export function AgentImportForm({
   const [description, setDescription] = useState("");
   const [computerMode, setComputerMode] = useState<ComputerMode>("team");
   const [reply, setReply] = useState("");
+  const [link, setLink] = useState("");
+  const [opening, setOpening] = useState(false);
+  const [cursor, setCursor] = useState<CursorStatus["status"] | null>(null);
+  // Started after a template needed it: the page to approve, the handle the poll takes, and
+  // the link and read to retry once approved.
+  const [signIn, setSignIn] = useState<{
+    url: string;
+    pending: string;
+    link: string;
+    read: number;
+  } | null>(null);
+  const [waiting, setWaiting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -113,7 +134,7 @@ export function AgentImportForm({
   }
 
   function notFound() {
-    return t`No OpenClaw, Hermes or agent document found.`;
+    return t`No OpenClaw, Hermes, Grok Bot or agent document found.`;
   }
 
   async function preview(
@@ -290,13 +311,102 @@ export function AgentImportForm({
   const secretsAvailable =
     hasSecretFiles || sourceFiles.some(({ home, content }) => hasAgentImportSecrets(home, content));
 
-  async function previewDocument(content: string, read = ++latestRead.current) {
+  /** Files made away from this device's folders: an agent document or a Grok Bot template. */
+  async function previewFiles(next: AgentImportFile[], read = ++latestRead.current) {
     setSource(null);
     setSourceFiles([]);
     setHasSecretFiles(false);
     setSkillFiles({});
     importKey.current = crypto.randomUUID();
-    await preview(read, [{ path: "agent.md", content }], { siblings: {} });
+    await preview(read, next, { siblings: {} });
+  }
+
+  async function previewDocument(content: string, read = ++latestRead.current) {
+    await previewFiles([{ path: "agent.md", content }], read);
+  }
+
+  useEffect(() => {
+    rpc.grokImport.cursor().then(
+      (next) => setCursor(next.status),
+      () => setCursor(null),
+    );
+  }, []);
+
+  async function startSignIn(target: string, read: number) {
+    setWaiting(false);
+    try {
+      setSignIn({ ...(await rpc.grokImport.cursorSignIn()), link: target, read });
+    } catch (err) {
+      setError(errorText(err));
+    }
+  }
+
+  async function openLink(target: string, read = ++latestRead.current) {
+    setError(null);
+    setBusy(true);
+    setOpening(true);
+    try {
+      const { files: next } = await rpc.grokImport.template({ link: target.trim() });
+      if (read !== latestRead.current) return;
+      await previewFiles(next, read);
+    } catch (err) {
+      if (read !== latestRead.current) return;
+      setBusy(false);
+      if (agentImportErrorReason(err) !== "cursor_signed_out") {
+        failure(err, t`Could not read these files`);
+      } else {
+        // Someone whose sign-in just ended is told; anyone else only sees the button.
+        if (cursor === "signed_in") failure(err, t`Could not read these files`);
+        setCursor("signed_out");
+        await startSignIn(target, read);
+      }
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  // Once the Cursor page is open, ask every two seconds; approved, the template opens.
+  useEffect(() => {
+    if (!waiting || !signIn) return;
+    let stopped = false;
+    let timer = 0;
+    const poll = async () => {
+      try {
+        const { status } = await rpc.grokImport.cursorSignInPoll({ pending: signIn.pending });
+        if (stopped) return;
+        if (status === "signed_in") {
+          setCursor("signed_in");
+          setSignIn(null);
+          setWaiting(false);
+          if (signIn.read === latestRead.current) void openLink(signIn.link, signIn.read);
+          return;
+        }
+        if (status === "signed_out") {
+          setWaiting(false);
+          failure(SIGNED_OUT_AGAIN, t`Could not read these files`);
+          void startSignIn(signIn.link, signIn.read);
+          return;
+        }
+      } catch {
+        if (stopped) return;
+      }
+      timer = window.setTimeout(poll, CURSOR_POLL_MS);
+    };
+    timer = window.setTimeout(poll, CURSOR_POLL_MS);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    };
+  }, [waiting, signIn]);
+
+  async function signOutCursor() {
+    try {
+      setCursor((await rpc.grokImport.cursorSignOut()).status);
+      setSignIn(null);
+      setWaiting(false);
+    } catch (err) {
+      setError(errorText(err));
+    }
   }
 
   async function pickDocument(list: FileList | null) {
@@ -812,7 +922,7 @@ export function AgentImportForm({
         <div data-testid="agent-import-choose">
           <section>
             <h3 className={headingClass}>
-              <Trans>OpenClaw or Hermes</Trans>
+              <Trans>OpenClaw, Hermes or Grok Bot</Trans>
             </h3>
             <input
               ref={(node) => {
@@ -868,6 +978,49 @@ export function AgentImportForm({
                 <Trans>Choose backup</Trans>
               </Button>
             </div>
+            <form
+              className="mt-3 flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void openLink(link);
+              }}
+            >
+              <Input
+                aria-label={t`Grok Bot link`}
+                placeholder="x.ai/bot/…"
+                value={link}
+                onChange={(event) => setLink(event.target.value)}
+              />
+              <Button type="submit" variant="outline" disabled={!grokShareId(link) || busy}>
+                {opening ? <Spinner aria-hidden="true" /> : null}
+                <Trans>Open</Trans>
+              </Button>
+            </form>
+            {cursor === "signed_in" ? (
+              <p className="mt-2 flex items-center gap-1 text-[12.5px] text-muted-foreground">
+                <Trans>Signed in to Cursor</Trans>
+                <span aria-hidden="true">·</span>
+                <Button
+                  variant="text"
+                  size="xs"
+                  className="px-0"
+                  onClick={() => void signOutCursor()}
+                >
+                  <Trans>Sign out</Trans>
+                </Button>
+              </p>
+            ) : signIn ? (
+              <a
+                href={signIn.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn("mt-2", buttonVariants({ variant: "outline" }))}
+                onClick={() => setWaiting(true)}
+              >
+                {waiting ? <Spinner aria-hidden="true" /> : null}
+                <Trans>Sign in with Cursor</Trans>
+              </a>
+            ) : null}
           </section>
           <section className={sectionClass}>
             <h3 className={headingClass}>

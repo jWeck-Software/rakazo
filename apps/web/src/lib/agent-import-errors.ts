@@ -34,6 +34,14 @@ export function agentImportErrorText(error: unknown): string | undefined {
       return t`An imported API key could not be checked. Try again.`;
     case "key_check_failed":
       return t`An imported API key could not be used. Untick it and try again.`;
+    case "grok_not_found":
+      return t`This Grok Bot link was not found.`;
+    case "grok_unavailable":
+      return t`Grok Bot could not be reached. Try again.`;
+    case "cursor_signed_out":
+      return t`Sign in with Cursor again.`;
+    case "cursor_needs_grok_bot":
+      return t`Your Cursor account needs a plan with Grok Bot.`;
     default:
       return undefined;
   }

@@ -3044,6 +3044,14 @@ msgstr "Git 이벤트"
 msgid "Go home"
 msgstr "홈으로"
 
+#: src/lib/agent-import-errors.ts
+msgid "Grok Bot could not be reached. Try again."
+msgstr "Grok Bot에 연결할 수 없습니다. 다시 시도하세요."
+
+#: src/pages/shell/agent-import.tsx
+msgid "Grok Bot link"
+msgstr "Grok Bot 링크"
+
 #: src/lib/identity-display.ts
 #: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/shell/chat-header.tsx
@@ -4052,8 +4060,8 @@ msgid "No models listed."
 msgstr "나열된 모델이 없습니다."
 
 #: src/pages/shell/agent-import.tsx
-msgid "No OpenClaw, Hermes or agent document found."
-msgstr "OpenClaw, Hermes 또는 에이전트 문서를 찾지 못했습니다."
+msgid "No OpenClaw, Hermes, Grok Bot or agent document found."
+msgstr "OpenClaw, Hermes, Grok Bot 또는 에이전트 문서를 찾지 못했습니다."
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "No remote MCP servers found"
@@ -4215,6 +4223,7 @@ msgstr ""
 
 #: src/components/markdown-link-prompt.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
+#: src/pages/shell/agent-import.tsx
 #: src/pages/shell/computer-panel.tsx
 #: src/pages/shell/import-setup-card.tsx
 #: src/pages/shell/message-view.tsx
@@ -4275,8 +4284,8 @@ msgid "OpenAI-compatible server URL"
 msgstr "OpenAI 호환 서버 주소"
 
 #: src/pages/shell/agent-import.tsx
-msgid "OpenClaw or Hermes"
-msgstr "OpenClaw 또는 Hermes"
+msgid "OpenClaw, Hermes or Grok Bot"
+msgstr "OpenClaw, Hermes 또는 Grok Bot"
 
 #: src/components/SignupSurvey.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -5394,6 +5403,14 @@ msgstr "Rakazo 로그인"
 msgid "Sign in to your existing account to link SSO"
 msgstr "SSO를 연결하려면 기존 계정에 로그인하세요"
 
+#: src/pages/shell/agent-import.tsx
+msgid "Sign in with Cursor"
+msgstr "Cursor로 로그인"
+
+#: src/lib/agent-import-errors.ts
+msgid "Sign in with Cursor again."
+msgstr "Cursor로 다시 로그인하세요."
+
 #: src/components/PasskeySignIn.tsx
 msgid "Sign in with passkey"
 msgstr "패스키로 로그인"
@@ -5401,6 +5418,10 @@ msgstr "패스키로 로그인"
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
 msgstr "구독으로 로그인하거나 대신 API 키를 테스트하세요."
+
+#: src/pages/shell/agent-import.tsx
+msgid "Sign out"
+msgstr "로그아웃"
 
 #: src/pages/Auth.tsx
 #: src/pages/Welcome.tsx
@@ -5410,6 +5431,10 @@ msgstr "가입하기"
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Sign-in cancelled. Try again."
 msgstr ""
+
+#: src/pages/shell/agent-import.tsx
+msgid "Signed in to Cursor"
+msgstr "Cursor에 로그인됨"
 
 #: src/components/VaultSettings.tsx
 msgid "Site"
@@ -5867,6 +5892,10 @@ msgstr ""
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is not valid UTF-8 text."
 msgstr ""
+
+#: src/lib/agent-import-errors.ts
+msgid "This Grok Bot link was not found."
+msgstr "이 Grok Bot 링크를 찾을 수 없습니다."
 
 #: src/lib/agent-import-errors.ts
 msgid "This import was already used. Choose the files again."
@@ -6483,6 +6512,10 @@ msgstr "직접 조작 중"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "사용 중인 Anthropic"
+
+#: src/lib/agent-import-errors.ts
+msgid "Your Cursor account needs a plan with Grok Bot."
+msgstr "Cursor 계정에 Grok Bot이 포함된 요금제가 필요합니다."
 
 #: src/pages/SpaceSettingOverrides.tsx
 msgid "Your defaults"
