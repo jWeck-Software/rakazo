@@ -1140,6 +1140,7 @@ msgstr "Kann keine Bilder lesen"
 #: src/components/PasskeySettings.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
 #: src/components/VaultSettings.tsx
+#: src/components/VaultwardenSource.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -1306,6 +1307,10 @@ msgstr ""
 msgid "Choose backup"
 msgstr "Backup wählen"
 
+#: src/components/VaultwardenSource.tsx
+msgid "Choose collections"
+msgstr ""
+
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
@@ -1346,6 +1351,14 @@ msgstr ""
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "Wird geleert…"
+
+#: src/components/VaultwardenSource.tsx
+msgid "Client ID"
+msgstr ""
+
+#: src/components/VaultwardenSource.tsx
+msgid "Client secret"
+msgstr ""
 
 #: src/components/ErrorBoundary.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -1564,6 +1577,7 @@ msgstr "Prüfe, ob die URL aus dieser Browsersitzung erreichbar ist, und teste e
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/VaultwardenSource.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
@@ -1573,6 +1587,10 @@ msgstr "Prüfe, ob die URL aus dieser Browsersitzung erreichbar ist, und teste e
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connect"
 msgstr "Verbinden"
+
+#: src/components/VaultwardenSource.tsx
+msgid "Connect {name}"
+msgstr ""
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Connect {selectedProviderName}"
@@ -1643,6 +1661,7 @@ msgid "Connected {0}."
 msgstr "{0} verbunden."
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/VaultwardenSource.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
@@ -2567,6 +2586,7 @@ msgstr "Deaktiviert"
 msgid "Discard recording"
 msgstr "Aufnahme verwerfen"
 
+#: src/components/VaultwardenSource.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/MessagingSettingsPanel.tsx
@@ -2580,6 +2600,7 @@ msgstr "Trennen"
 msgid "Disconnect {disconnectName}?"
 msgstr ""
 
+#: src/components/VaultwardenSource.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
 msgid "Disconnect {name}?"
 msgstr ""
@@ -3587,6 +3608,10 @@ msgstr "Markdown-Tabelle"
 msgid "Marketing"
 msgstr ""
 
+#: src/components/VaultwardenSource.tsx
+msgid "Master password"
+msgstr ""
+
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
@@ -3833,6 +3858,7 @@ msgstr ""
 msgid "Monthly credits expire at renewal. Top-ups do not expire."
 msgstr ""
 
+#: src/components/VaultwardenSource.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/message-hover-actions.tsx
 msgid "More"
@@ -4015,6 +4041,10 @@ msgstr "Keine Authentifizierung"
 #: src/pages/GroupPanel.tsx
 #: src/pages/shell/bot-picker.tsx
 msgid "No bots match"
+msgstr ""
+
+#: src/components/VaultwardenSource.tsx
+msgid "No collections"
 msgstr ""
 
 #: src/components/AskCard.tsx
@@ -5055,6 +5085,7 @@ msgstr "Samstag"
 #: src/components/AskCard.tsx
 #: src/components/PasskeySettings.tsx
 #: src/components/teach/SkillDraftCard.tsx
+#: src/components/VaultwardenSource.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Board.tsx
 #: src/pages/ExternalConversationSettings.tsx
@@ -5277,6 +5308,7 @@ msgid "Server name"
 msgstr "Servername"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/components/VaultwardenSource.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx

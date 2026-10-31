@@ -1163,6 +1163,11 @@ export const ES_MESSAGES: Record<string, string> = {
   "Use email code": "Usar código por correo",
   "Use password": "Usar contraseña",
   "{count} messages with {peer}": "{count} mensajes con {peer}",
+  "Choose collections": "Elegir colecciones",
+  "Master password": "Contraseña maestra",
+  "No collections": "No hay colecciones",
+  "Client ID": "ID de cliente",
+  "Client secret": "Secreto de cliente",
 };
 
 export const PEER_MESSAGE_FORMS: Partial<Record<Intl.LDMLPluralRule, string>> = {

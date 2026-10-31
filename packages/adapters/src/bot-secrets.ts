@@ -33,6 +33,7 @@ import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { createPrivateNetworkFetch, createSafeRemoteFetch } from "./remote-mcp.js";
 import { generateSecretValue } from "./secret-generator.js";
 import { persistPreparedSecret } from "./secret-persistence.js";
+import { VAULTWARDEN_REF_PREFIX } from "./vaultwarden-secret-store.js";
 import { readBodyCapped, withAbort } from "./web-ssrf.js";
 
 /**
@@ -651,15 +652,24 @@ export async function listBotSecrets(prisma: PrismaClient, scope: BotSecretScope
   return rows.map(botSecretToolView);
 }
 
-// Owner-facing view: destination and timestamps only, never the row id or ciphertext.
-const ownerMetadata = { ...metadata, createdAt: true, updatedAt: true } as const;
+// Owner-facing view: destination and timestamps only, never the row id or ciphertext. The
+// ciphertext is read only to tell where the value lives, and is dropped here.
+const ownerMetadata = { ...metadata, createdAt: true, updatedAt: true, ciphertext: true } as const;
+
+function ownerMetadataView<Row extends { ciphertext: string }>({ ciphertext, ...row }: Row) {
+  const source: "rakazo" | "vaultwarden" = ciphertext.startsWith(VAULTWARDEN_REF_PREFIX)
+    ? "vaultwarden"
+    : "rakazo";
+  return { ...row, source };
+}
 
 export async function listBotSecretMetadata(prisma: PrismaClient, scope: BotSecretScope) {
-  return prisma.vaultCredential.findMany({
+  const rows = await prisma.vaultCredential.findMany({
     where: await vaultFields(prisma, scope),
     select: ownerMetadata,
     orderBy: { name: "asc" },
   });
+  return rows.map(ownerMetadataView);
 }
 
 export async function getBotSecretMetadata(
@@ -667,10 +677,11 @@ export async function getBotSecretMetadata(
   scope: BotSecretScope,
   name: string,
 ) {
-  return client.vaultCredential.findFirst({
+  const row = await client.vaultCredential.findFirst({
     where: { ...(await vaultFields(client, scope)), name },
     select: ownerMetadata,
   });
+  return row && ownerMetadataView(row);
 }
 
 /**

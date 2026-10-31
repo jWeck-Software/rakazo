@@ -1222,6 +1222,9 @@ export const DE_MESSAGES: Record<string, string> = {
   "1 free month earned": "1 Gratismonat verdient",
   "{count} free months earned": "{count} Gratismonate verdient",
   "Submit a plugin": "Plugin einreichen",
+  "Choose collections": "Sammlungen auswählen",
+  "Master password": "Master-Passwort",
+  "No collections": "Keine Sammlungen",
 };
 
 export const PEER_MESSAGE_FORMS: Partial<Record<Intl.LDMLPluralRule, string>> = {

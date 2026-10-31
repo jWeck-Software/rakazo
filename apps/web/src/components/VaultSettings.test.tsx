@@ -44,6 +44,10 @@ vi.mock("./ConfirmIdentityDialog", async () => {
   };
 });
 
+// The Vaultwarden connection has its own dialogs and queries; this file covers the vault list.
+vi.mock("./VaultwardenSource", () => ({
+  useVaultwardenSource: () => ({ row: null, connectButton: null, dialogs: null, busy: false }),
+}));
 vi.mock("../lib/rpc", () => ({
   rpc: { vault },
   rpcForSpace: () => ({ vault }),

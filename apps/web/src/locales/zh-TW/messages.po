@@ -1141,6 +1141,7 @@ msgstr "無法讀取影像"
 #: src/components/PasskeySettings.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
 #: src/components/VaultSettings.tsx
+#: src/components/VaultwardenSource.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -1307,6 +1308,10 @@ msgstr "選擇供應商"
 msgid "Choose backup"
 msgstr "選擇備份"
 
+#: src/components/VaultwardenSource.tsx
+msgid "Choose collections"
+msgstr ""
+
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
@@ -1347,6 +1352,14 @@ msgstr "清除篩選條件 {label}"
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "正在清空…"
+
+#: src/components/VaultwardenSource.tsx
+msgid "Client ID"
+msgstr ""
+
+#: src/components/VaultwardenSource.tsx
+msgid "Client secret"
+msgstr ""
 
 #: src/components/ErrorBoundary.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -1565,6 +1578,7 @@ msgstr "請確認此瀏覽器工作階段可以存取該 URL，然後重新測�
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/VaultwardenSource.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
@@ -1574,6 +1588,10 @@ msgstr "請確認此瀏覽器工作階段可以存取該 URL，然後重新測�
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connect"
 msgstr "連線"
+
+#: src/components/VaultwardenSource.tsx
+msgid "Connect {name}"
+msgstr ""
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Connect {selectedProviderName}"
@@ -1644,6 +1662,7 @@ msgid "Connected {0}."
 msgstr "已連線 {0}。"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/VaultwardenSource.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
@@ -2568,6 +2587,7 @@ msgstr "已停用"
 msgid "Discard recording"
 msgstr "捨棄錄製內容"
 
+#: src/components/VaultwardenSource.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/MessagingSettingsPanel.tsx
@@ -2581,6 +2601,7 @@ msgstr "中斷"
 msgid "Disconnect {disconnectName}?"
 msgstr "要中斷 {disconnectName} 的連線嗎？"
 
+#: src/components/VaultwardenSource.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
 msgid "Disconnect {name}?"
 msgstr ""
@@ -3588,6 +3609,10 @@ msgstr "Markdown 表格"
 msgid "Marketing"
 msgstr ""
 
+#: src/components/VaultwardenSource.tsx
+msgid "Master password"
+msgstr ""
+
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
@@ -3834,6 +3859,7 @@ msgstr "每月額度"
 msgid "Monthly credits expire at renewal. Top-ups do not expire."
 msgstr "每月額度在續訂時到期。單次加值額度不會過期。"
 
+#: src/components/VaultwardenSource.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/message-hover-actions.tsx
 msgid "More"
@@ -4017,6 +4043,10 @@ msgstr "無驗證"
 #: src/pages/shell/bot-picker.tsx
 msgid "No bots match"
 msgstr "沒有符合的機器人"
+
+#: src/components/VaultwardenSource.tsx
+msgid "No collections"
+msgstr ""
 
 #: src/components/AskCard.tsx
 msgid "No longer active"
@@ -5056,6 +5086,7 @@ msgstr "週六"
 #: src/components/AskCard.tsx
 #: src/components/PasskeySettings.tsx
 #: src/components/teach/SkillDraftCard.tsx
+#: src/components/VaultwardenSource.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Board.tsx
 #: src/pages/ExternalConversationSettings.tsx
@@ -5278,6 +5309,7 @@ msgid "Server name"
 msgstr "伺服器名稱"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/components/VaultwardenSource.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx

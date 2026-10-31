@@ -124,6 +124,8 @@ vi.mock("../components/settings-group", () => ({
       ? createElement("button", { type: "button", onClick: onPress }, title)
       : createElement("span", null, detail ? `${title}: ${detail}` : title),
 }));
+// The Vaultwarden connection has its own sheet and requests; this file covers the vault list.
+vi.mock("../components/vaultwarden-source", () => ({ VaultwardenSource: () => null }));
 // The sheet is covered by its own test; here it reports what it was opened for and saves a fixed
 // destination, rejecting the way the real sheet expects when the save fails.
 vi.mock("../components/vault-credential-sheet", () => ({

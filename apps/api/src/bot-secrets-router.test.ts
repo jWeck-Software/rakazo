@@ -209,7 +209,7 @@ describe("botSecrets router", () => {
     expect(prisma.vaultCredential.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("lists metadata only, selecting neither the ciphertext nor the row id", async () => {
+  it("lists metadata only, returning neither the ciphertext nor the row id", async () => {
     const created = new Date("2026-08-01T00:00:00.000Z");
     const { prisma, call } = botSecretDeps([
       {
@@ -229,6 +229,7 @@ describe("botSecrets router", () => {
     const select = prisma.vaultCredential.findMany.mock.calls[0]?.[0].select ?? {};
     expect(Object.keys(select).sort()).toEqual([
       "auth",
+      "ciphertext",
       "createdAt",
       "name",
       "origin",
@@ -239,6 +240,7 @@ describe("botSecrets router", () => {
         name: "github",
         origin: "https://api.github.com",
         auth: { type: "basic", username: "octocat" },
+        source: "rakazo",
         createdAt: "2026-08-01T00:00:00.000Z",
         updatedAt: "2026-08-01T00:00:00.000Z",
       },
@@ -256,6 +258,7 @@ describe("botSecrets router", () => {
       name: "router",
       origin: "http://192.168.1.20:8080",
       auth: { type: "bearer" },
+      source: "rakazo",
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-01T00:00:00.000Z",
     });
@@ -419,6 +422,7 @@ describe("botSecrets router", () => {
         name: "router",
         origin: "http://192.168.1.20:8080",
         auth: null,
+        source: "rakazo",
         createdAt: "2026-08-01T00:00:00.000Z",
         updatedAt: "2026-08-01T00:00:00.000Z",
       },

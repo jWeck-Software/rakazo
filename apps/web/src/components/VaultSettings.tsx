@@ -26,6 +26,7 @@ import { errorText } from "../lib/user-error";
 import { useIdentityConfirmation } from "./ConfirmIdentityDialog";
 import { InfoTooltip } from "./InfoTooltip";
 import { LoginFieldsEditor } from "./LoginFields";
+import { useVaultwardenSource } from "./VaultwardenSource";
 
 type ReadableCredentialAuth = NonNullable<BotSecretMetadata["auth"]>;
 type CredentialAuthType = ReadableCredentialAuth["type"];
@@ -82,10 +83,12 @@ export function VaultSettings({
   const revealAttempt = useRef(0);
   const hideTimer = useRef<number | undefined>(undefined);
   const { withIdentityConfirmation, identityDialog } = useIdentityConfirmation();
+  const source = useVaultwardenSource({ scope, disabled: busy, onChanged: refresh });
+  const anyBusy = busy || source.busy;
 
   useEffect(() => {
-    onBusyChange?.(busy);
-  }, [busy, onBusyChange]);
+    onBusyChange?.(anyBusy);
+  }, [anyBusy, onBusyChange]);
   useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
   useEffect(
     () => () => {
@@ -276,6 +279,7 @@ export function VaultSettings({
 
   return (
     <section data-testid="vault" className="space-y-3">
+      {source.row}
       {loadFailed || secrets?.length || error || adding ? (
         <div data-testid="vault-card" className="rounded-xl bg-muted/50 p-4 [&>:first-child]:mt-0">
           {loadFailed ? (
@@ -294,6 +298,8 @@ export function VaultSettings({
                   secret.auth !== null && BotSecretName.safeParse(secret.name).success
                     ? secret.auth
                     : null;
+                // Managed in Vaultwarden: never shown, replaced or removed here.
+                const managed = secret.source === "vaultwarden";
                 return (
                   <li key={secret.name} data-testid="vault-credential-row">
                     <div className="flex items-start justify-between gap-3">
@@ -301,7 +307,7 @@ export function VaultSettings({
                         {secret.name}
                       </div>
                       {/* Per-row actions; each one closes the others' open forms. */}
-                      {replacing !== secret.name && confirmingRemove !== secret.name ? (
+                      {!managed && replacing !== secret.name && confirmingRemove !== secret.name ? (
                         <div className="-mt-0.5 flex shrink-0 gap-1">
                           {readableAuth !== null ? (
                             <Tooltip>
@@ -388,7 +394,7 @@ export function VaultSettings({
                         {secret.origin}
                       </div>
                     ) : null}
-                    {readableAuth === null ? (
+                    {readableAuth === null && !managed ? (
                       <div className="flex flex-wrap gap-x-2 text-[12px]">
                         <span className="text-destructive">
                           <Trans>
@@ -399,10 +405,11 @@ export function VaultSettings({
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-x-2 text-[12px] text-muted-foreground/70">
-                        <span>{authLabel(readableAuth)}</span>
-                        {readableAuth.type === "command" ? (
+                        {readableAuth ? <span>{authLabel(readableAuth)}</span> : null}
+                        {readableAuth?.type === "command" ? (
                           <span>${commandVariableName(secret.name)}</span>
                         ) : null}
+                        {managed ? <span>Vaultwarden</span> : null}
                         <span>{t`Updated ${updated}`}</span>
                       </div>
                     )}
@@ -623,23 +630,27 @@ export function VaultSettings({
         </div>
       ) : null}
       {adding ? null : (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          data-testid="credential-add"
-          disabled={busy}
-          onClick={() => {
-            clearProtectedFields();
-            setReplacing(null);
-            setConfirmingRemove(null);
-            setAdding(true);
-          }}
-        >
-          <Plus />
-          <Trans>Add credential</Trans>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-testid="credential-add"
+            disabled={busy}
+            onClick={() => {
+              clearProtectedFields();
+              setReplacing(null);
+              setConfirmingRemove(null);
+              setAdding(true);
+            }}
+          >
+            <Plus />
+            <Trans>Add credential</Trans>
+          </Button>
+          {source.connectButton}
+        </div>
       )}
+      {source.dialogs}
       {identityDialog}
     </section>
   );

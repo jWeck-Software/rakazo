@@ -141,6 +141,7 @@ function botSecretMetadataDto(row: {
   name: string;
   origin: string;
   auth: unknown;
+  source: BotSecretMetadata["source"];
   createdAt: Date;
   updatedAt: Date;
 }): BotSecretMetadata {
@@ -159,6 +160,7 @@ function botSecretMetadataDto(row: {
     name: row.name,
     origin: row.origin,
     auth,
+    source: row.source,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

@@ -10,6 +10,7 @@ import { useIdentityConfirmation } from "../../components/confirm-identity";
 import { LoadFailure } from "../../components/load-failure";
 import { SettingsGroup, SettingsRow } from "../../components/settings-group";
 import { VaultCredentialSheet } from "../../components/vault-credential-sheet";
+import { VaultwardenSource } from "../../components/vaultwarden-source";
 import { mobileTokens } from "../../lib/appearance";
 import { useI18n } from "../../lib/i18n";
 import { presentMessageActionSheet } from "../../lib/message-action-sheet";
@@ -190,35 +191,44 @@ export default function Vault() {
         ) : null}
         {credentials ? (
           <SettingsGroup>
-            {credentials.map((credential) => (
-              // Each row's actions live in its menu, so another action is one more entry here.
-              <MenuView
-                key={credential.name}
-                actions={[
-                  ...(readableCredential(credential)
-                    ? [
-                        { id: "show", title: t("Show") },
-                        { id: "replace", title: t("Replace value") },
-                      ]
-                    : []),
-                  { id: "remove", title: t("Remove"), attributes: { destructive: true } },
-                ]}
-                colorScheme={colorScheme}
-                onPressAction={(event) => {
-                  const action = event.nativeEvent.event;
-                  if (isCredentialAction(action)) runAction(credential, action);
-                }}
-                title={credential.name}
-              >
+            {credentials.map((credential) =>
+              // Managed in Vaultwarden: never shown, replaced or removed here.
+              credential.source === "vaultwarden" ? (
                 <SettingsRow
-                  accessible
-                  accessibilityRole="button"
-                  dimmed={pending}
+                  key={credential.name}
                   title={credential.name}
-                  detail={credentialDetail(credential) || undefined}
+                  detail={[credentialDetail(credential), "Vaultwarden"].filter(Boolean).join(" · ")}
                 />
-              </MenuView>
-            ))}
+              ) : (
+                // Each row's actions live in its menu, so another action is one more entry here.
+                <MenuView
+                  key={credential.name}
+                  actions={[
+                    ...(readableCredential(credential)
+                      ? [
+                          { id: "show", title: t("Show") },
+                          { id: "replace", title: t("Replace value") },
+                        ]
+                      : []),
+                    { id: "remove", title: t("Remove"), attributes: { destructive: true } },
+                  ]}
+                  colorScheme={colorScheme}
+                  onPressAction={(event) => {
+                    const action = event.nativeEvent.event;
+                    if (isCredentialAction(action)) runAction(credential, action);
+                  }}
+                  title={credential.name}
+                >
+                  <SettingsRow
+                    accessible
+                    accessibilityRole="button"
+                    dimmed={pending}
+                    title={credential.name}
+                    detail={credentialDetail(credential) || undefined}
+                  />
+                </MenuView>
+              ),
+            )}
             <SettingsRow
               key="add"
               accessibilityRole="button"
@@ -228,6 +238,14 @@ export default function Vault() {
               title={t("Add credential")}
             />
           </SettingsGroup>
+        ) : null}
+        {credentials ? (
+          <VaultwardenSource
+            rpc={rpc}
+            scope={scope}
+            disabled={pending}
+            onChanged={() => setAttempt((count) => count + 1)}
+          />
         ) : null}
       </ScrollView>
       {sheet ? (

@@ -629,6 +629,8 @@ export const BotSecretMetadata = z.object({
   name: StoredBotSecretName,
   origin: z.string(),
   auth: BotSecretAuth.nullable(),
+  // Where the value lives. A Vaultwarden login is managed there and never revealed here.
+  source: z.enum(["rakazo", "vaultwarden"]).default("rakazo"),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
