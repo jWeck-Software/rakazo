@@ -57,7 +57,7 @@ const ImportDetails = z.object({
   template: z.object({ name: z.string().default("") }),
   blobGetUrl: z.string(),
   /** Community templates only. */
-  creatorDisplayName: z.string().optional(),
+  creatorDisplayName: z.string().nullish(),
 });
 
 export type GrokImportRefusal = Extract<
