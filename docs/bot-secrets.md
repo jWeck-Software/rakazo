@@ -115,3 +115,34 @@ does not list or replace one.
 A sign-in without a password, such as an ID number and phone number, uses the same login card. Texted or emailed one-time codes, CAPTCHA and passkeys still use `request_takeover`, so a code is typed on the live screen rather than saved, as is any sign-in you prefer to do yourself.
 
 The value is typed into a real browser on the bot's computer. Anything that can read that browser, including the bot's own shell commands through the page or its debugging port, could read a filled field. Keeping the value out of model input stops accidental disclosure, not a bot that sets out to extract it. Save logins only for accounts you would let the bot use unattended.
+
+## Vaultwarden
+
+A company that keeps its passwords in a self-hosted [Vaultwarden](https://github.com/dani-garcia/vaultwarden)
+can let bots fill those logins without copying them into Rakazo. Open **Settings → Vault** and choose
+**Connect Vaultwarden**. Enter the server URL, the account's personal API key (**Client ID** and
+**Client secret**, from the account's security settings in Vaultwarden) and its master password, then
+choose the collections bots may use. A Space that keeps its own vault connects separately.
+
+Use a Vaultwarden account made for Rakazo and share only the collections bots need with it. Rakazo
+uses the master password once to unlock the account's key, stores that key and the API key encrypted
+like other credentials, and discards the password. Rotating the API key or disabling the account in
+Vaultwarden ends access; changing the master password alone does not.
+
+Each login in the chosen collections that has a password and an HTTPS address appears in the vault
+under a name derived from its title, with its first HTTPS address as the origin. Logins that ask for
+the master password again before filling are left out, and so are logins over the vault's limit of
+100. Rakazo stores only the name, origin and a pointer: the value is fetched from Vaultwarden and
+decrypted when a bot fills it, and it is held in memory for at most 30 seconds. The list is refreshed
+when you connect or change collections and every 15 minutes, so a login removed in Vaultwarden stops
+working at once and leaves the list at the next refresh.
+
+Bots fill these logins with `fill_secret` exactly like saved ones, and the same redaction applies.
+Values are never shown in Rakazo, even when Vaultwarden would let the account see the password, and
+they cannot be replaced or removed here: manage them in Vaultwarden, or change the chosen collections.
+If Vaultwarden cannot be reached when a run starts, Rakazo cannot redact those passwords, so that
+run's computer tools are paused while chat and other tools keep working.
+
+A Vaultwarden on a private network needs `MCP_ALLOW_PRIVATE_ENDPOINT=true` on the API and worker, as
+for other self-hosted services; only then may a private address use plain `http://`. Public servers
+must use HTTPS.
