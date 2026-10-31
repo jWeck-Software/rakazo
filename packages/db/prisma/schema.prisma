@@ -42,6 +42,7 @@ model User {
   modelCredentials            UserModelCredential[]
   voiceCredentials            UserVoiceCredential[]
   paymentWallet               PaymentWallet?
+  cursorSession               CursorSession?
   secrets                     Secret[]
   mcpServers                  McpServer[]
   botSections                 BotSection[]
@@ -991,6 +992,19 @@ model PaymentWallet {
   @@map("payment_wallets")
 }
 
+/// A user's "Sign in with Cursor", which reads Grok Bot templates. The ciphertext holds the
+/// Cursor tokens; they are sent only to api2.cursor.sh.
+model CursorSession {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ciphertext String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("cursor_sessions")
+}
+
 model Purchase {
   id           String    @id @default(uuid())
   operationKey String    @unique
@@ -1138,7 +1152,7 @@ model AgentImport {
   userId        String
   botId         String
   bot           Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
-  /// openclaw | hermes | document
+  /// openclaw | hermes | grok | document
   source        String
   created       Json
   /// Idempotency: a retry with the same key and digest returns the same bot.
