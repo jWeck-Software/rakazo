@@ -360,6 +360,33 @@ describe("sandbox idle", () => {
     );
   });
 
+  it("clears a stranded legacy execution binding so an idle computer can suspend", async () => {
+    const harness = idleHarness();
+    harness.prisma.run.findFirst.mockResolvedValue(null);
+    // A pre-lease release left this binding; its run ended and nothing reclaims it.
+    harness.computer.executionRunId = "run-ended";
+    harness.prisma.run.findUnique.mockResolvedValue({ status: "cancelled" });
+    // Like the real database, the suspension claim refuses a computer still bound.
+    const claim = harness.prisma.computer.updateMany;
+    harness.prisma.computer.updateMany = vi.fn(async (args) => {
+      if (
+        args.where.executionRunId !== undefined &&
+        args.where.executionRunId !== harness.computer.executionRunId
+      ) {
+        return { count: 0 };
+      }
+      return claim(args);
+    });
+
+    await sleepComputerIfIdle(harness.deps, harness.computer.id);
+
+    expect(harness.computer.executionRunId).toBeNull();
+    expect(harness.sandbox.stop).toHaveBeenCalledOnce();
+    expect(harness.prisma.computer.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ state: "suspended" }) }),
+    );
+  });
+
   it("never stops the computer when checkpoint export fails", async () => {
     const harness = idleHarness({ exportError: new Error("checkpoint unavailable") });
     harness.prisma.run.findFirst.mockResolvedValueOnce(null);
@@ -1225,6 +1252,122 @@ describe("maximum active lifetime", () => {
   });
 });
 
+describe("monthly computer allowance", () => {
+  const now = new Date("2026-01-20T12:00:00.000Z").getTime();
+
+  beforeEach(() => {
+    vi.stubEnv("SANDBOX_IDLE_MS", undefined);
+    vi.stubEnv("COMPUTER_MAX_ACTIVE_MS", undefined);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("saves and stops a computer once the month's allowance is spent, and says so once", async () => {
+    // $5 at the default $0.20 an hour.
+    const harness = idleHarness({
+      billsWhileRunning: true,
+      runningSince: new Date(now - 60_000),
+      backgroundWorkProbeCode: 0,
+      computerHours: 25,
+    });
+    harness.prisma.run.findFirst.mockResolvedValue({ id: "executing" });
+
+    await sleepComputerIfIdle(harness.deps, harness.computer.id);
+    await sleepComputerIfIdle(harness.deps, harness.computer.id);
+
+    expect(harness.prisma.$queryRaw).toHaveBeenCalled();
+    expect(harness.home.commit).toHaveBeenCalledOnce();
+    expect(harness.sandbox.stop).toHaveBeenCalledOnce();
+    expect(harness.computer.state).toBe("suspended");
+    expect(harness.prisma.computerRun.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ endReason: "allowance" }) }),
+    );
+    expect(harness.prisma.message.create).toHaveBeenCalledOnce();
+    expect(harness.prisma.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          role: "system",
+          blocks: [
+            {
+              kind: "meta",
+              text: "This month's computer allowance is used up. The computer was saved and stopped.",
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("keeps a busy computer running while allowance is left", async () => {
+    const harness = idleHarness({
+      billsWhileRunning: true,
+      runningSince: new Date(now - 60_000),
+      backgroundWorkProbeCode: 0,
+      computerHours: 24,
+    });
+
+    await sleepComputerIfIdle(harness.deps, harness.computer.id);
+
+    expect(harness.sandbox.stop).not.toHaveBeenCalled();
+    expect(harness.computer.state).toBe("running");
+  });
+
+  it("leaves a computer whose allowance is spent to a user in control until the lease ends", async () => {
+    const harness = idleHarness({
+      billsWhileRunning: true,
+      runningSince: new Date(now - 60_000),
+      computerHours: 25,
+    });
+    Object.assign(harness.computer, {
+      controlHolder: "user",
+      controlLeaseId: "lease",
+      controlLeaseExpiresAt: new Date(now + 60_000),
+    });
+    harness.prisma.run.findFirst.mockImplementation(async ({ where }) =>
+      where.status.in.includes("waiting_takeover") ? { id: "waiting-for-user" } : null,
+    );
+
+    await sleepComputerIfIdle(harness.deps, harness.computer.id);
+
+    expect(harness.sandbox.stop).not.toHaveBeenCalled();
+    expect(harness.computer.state).toBe("running");
+  });
+
+  it("stops a computer whose allowance is spent even while a coding agent works", async () => {
+    const harness = idleHarness({
+      billsWhileRunning: true,
+      runningSince: new Date(now - 60_000),
+      codingAgent: "codex",
+      computerHours: 25,
+    });
+
+    await sleepComputerIfIdle(harness.deps, harness.computer.id);
+
+    expect(harness.sandbox.stop).toHaveBeenCalledOnce();
+    expect(harness.computer.state).toBe("suspended");
+  });
+
+  it("never limits a computer that does not bill while running", async () => {
+    const harness = idleHarness({
+      billsWhileRunning: false,
+      runningSince: new Date(now - 60_000),
+      backgroundWorkProbeCode: 0,
+      computerHours: 500,
+    });
+
+    await sleepComputerIfIdle(harness.deps, harness.computer.id);
+
+    expect(harness.prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(harness.sandbox.stop).not.toHaveBeenCalled();
+  });
+});
+
 describe("background work launch and probe", () => {
   const children: ReturnType<typeof spawn>[] = [];
   const markers = new Set<string>();
@@ -1613,6 +1756,8 @@ function idleHarness(
     runSinceSave?: boolean;
     takeoverSinceSave?: boolean;
     runningAtProvider?: boolean;
+    /** Hours an own-key organization's computers ran this month; unset leaves billing off. */
+    computerHours?: number;
   } = {},
 ) {
   const backgroundWorkProbeCodes = [...(options.backgroundWorkProbeCodes ?? [])];
@@ -1629,6 +1774,7 @@ function idleHarness(
     controlLeaseId: null,
     controlLeaseExpiresAt: null,
     controlBotId: null,
+    executionRunId: null as string | null,
     executionBotId: null,
     runningSince: options.runningSince ?? null,
     homeRevisionAt: options.homeRevisionAt ?? null,
@@ -1637,6 +1783,14 @@ function idleHarness(
   const notices = new Map<string, { id: string }>();
   const prisma = {
     $transaction: async <T>(work: (tx: unknown) => Promise<T>): Promise<T> => work(prisma),
+    $queryRaw: vi.fn(async () => [{ kind: "e2b", hours: options.computerHours ?? 0 }]),
+    deploymentSettings: {
+      findUnique: vi.fn(async () => ({ modelCreditsEnabled: options.computerHours !== undefined })),
+    },
+    organization: {
+      findUnique: vi.fn(async () => ({ modelCredits: { mode: "byok" }, billing: null })),
+    },
+    space: { findUnique: vi.fn(async () => ({ organizationId: "organization" })) },
     thread: { update: vi.fn().mockResolvedValue({ nextMessageSeq: 1, nextEventSeq: 1 }) },
     message: {
       findUnique: vi.fn(
@@ -1667,6 +1821,7 @@ function idleHarness(
       findFirst: vi.fn(async ({ where }) =>
         options.runSinceSave && where.updatedAt ? { id: "later-run" } : null,
       ),
+      findUnique: vi.fn(async () => null as { status: string } | null),
       findMany: vi
         .fn()
         .mockResolvedValue(options.takeoverRequestedAt ? [{ id: "waiting-for-user" }] : []),
