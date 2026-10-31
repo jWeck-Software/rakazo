@@ -1,0 +1,13 @@
+{
+  "pbkdf2": {
+    "masterPassword": "vYx2r9zzF44GeOUURZ6Z92SOSsAkeaXM",
+    "userKey": "9mpDuiferZX99rJ34BFD46Qo92/HusP8kS5moHk917rkxlpTBfiHiYvzoHXozAzHCtwpDDF8xJuOSacWlpWFjA=="
+  },
+  "argon2": {
+    "masterPassword": "W-3dl60uDDwewRfKLTos61O3ex14Gy42",
+    "userKey": "YbbjfXg3AymQVFZkWYL4tKbLDvkZHJFqqX7K2Qh515gqzmRcFHAqw80QTLMS6Yw4Bvw7nyqxBrFZjcYZLcU3Ew=="
+  },
+  "hiddenPassword": {
+    "userKey": "fqmCEpgY9GuZHt9ljsclAIMRwd9dF3updp3KUlWfzJEYv3Bir6dDJv+MGKK9FPDBD1H+0OL+d0HZLs7cDJ3OcQ=="
+  }
+}
