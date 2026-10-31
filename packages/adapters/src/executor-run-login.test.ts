@@ -377,7 +377,7 @@ describe("forget_secret and generate_secret", () => {
 });
 
 describe("a login managed in Vaultwarden", () => {
-  const managed = "This login is managed in Vaultwarden and can't be changed here.";
+  const managed = "This login is managed in Vaultwarden.";
   const pointer = {
     ...DESTINATION,
     id: "login-vw",

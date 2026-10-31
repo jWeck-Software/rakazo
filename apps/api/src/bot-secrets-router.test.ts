@@ -611,7 +611,7 @@ describe("vault router", () => {
 });
 
 describe("a Vaultwarden login in the vault", () => {
-  const managed = "This login is managed in Vaultwarden and can't be changed here.";
+  const managed = "This login is managed in Vaultwarden.";
   const pointer = {
     id: "vw-row",
     userId: "user-1",

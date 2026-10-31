@@ -63,7 +63,7 @@ export function isVaultwardenRef(ciphertext: string): boolean {
 
 export class VaultwardenManagedError extends Error {
   constructor() {
-    super("This login is managed in Vaultwarden and can't be changed here.");
+    super("This login is managed in Vaultwarden.");
     this.name = "VaultwardenManagedError";
   }
 }
