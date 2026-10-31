@@ -850,6 +850,9 @@ export async function loadLoginPasswordRedactions(
   let credentialSource: CredentialSourceState = "available";
   for (const row of rows) {
     if (BotSecretAuth.safeParse(row.auth).data?.type !== "login") continue;
+    // The computers are already paused; an unreachable server would make each login wait out
+    // its own timeout.
+    if (credentialSource === "unavailable" && isVaultwardenRef(row.ciphertext)) continue;
     try {
       const { fields } = decodeLoginSecret(await secretStore.load(row.ciphertext, row.id));
       for (const field of fields) {

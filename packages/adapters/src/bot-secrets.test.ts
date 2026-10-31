@@ -956,6 +956,29 @@ describe("saved website logins", () => {
     }
   });
 
+  it("waits on an unreachable Vaultwarden once, not once per login", async () => {
+    const pointer = { ...scope, ...login, ciphertext: "vaultwarden:v1:source-1:cipher-1" };
+    const prisma = {
+      spaceSettingOverride: ownVault,
+      vaultCredential: {
+        findMany: vi.fn(async () => [
+          { ...pointer, id: "login-vw-1" },
+          { ...pointer, id: "login-vw-2", ciphertext: "vaultwarden:v1:source-1:cipher-2" },
+        ]),
+      },
+    } as unknown as PrismaClient;
+    const store = { load: vi.fn(async () => Promise.reject(new SecretStoreUnavailableError())) };
+    const logger = vi.spyOn(Logging, "getLogger").mockReturnValue({ warn: vi.fn() } as never);
+    try {
+      expect((await loadLoginPasswordRedactions(prisma, store, scope)).credentialSource).toBe(
+        "unavailable",
+      );
+      expect(store.load).toHaveBeenCalledOnce();
+    } finally {
+      logger.mockRestore();
+    }
+  });
+
   it("decrypts nothing for a bot without saved logins", async () => {
     const { prisma } = await loginFixture("fake-user@example.test", { type: "bearer" });
     const load = vi.spyOn(secretStore, "load");
