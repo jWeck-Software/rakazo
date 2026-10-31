@@ -33,6 +33,8 @@ const RECIPE_HOSTS = new Set([
 ]);
 const SIGN_IN_WINDOW_MS = 10 * 60_000;
 const TIMEOUT_MS = 20_000;
+/** The claim's write, the refresh and the new tokens' write, each bounded by TIMEOUT_MS. */
+const REFRESH_CLAIM_MS = 3 * TIMEOUT_MS;
 const MAX_ANSWER_BYTES = 4 * 1024 * 1024;
 
 export interface CursorDeps {
@@ -45,7 +47,12 @@ export interface CursorDeps {
 type Actor = { userId: string; spaceId: string };
 type Session = { row: CursorSession; tokens: Tokens };
 
-const Tokens = z.object({ accessToken: z.string().min(1), refreshToken: z.string().nullable() });
+const Tokens = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().nullable(),
+  /** Set while one request refreshes them; others neither refresh nor sign out meanwhile. */
+  refreshingUntil: z.number().optional(),
+});
 type Tokens = z.infer<typeof Tokens>;
 const PendingSignIn = z.object({
   userId: z.string(),
@@ -300,44 +307,59 @@ async function currentSession(deps: CursorDeps, userId: string): Promise<Session
   return null;
 }
 
+const refreshing = (tokens: Tokens) => (tokens.refreshingUntil ?? 0) > Date.now();
+
 /**
- * One refresh with the refresh token from sign-in, as Cursor's CLI does. Null when Cursor
+ * One refresh with the refresh token from sign-in, as Cursor's CLI does. It is claimed in the
+ * stored tokens first: a refresh token another request spent reads as refused, and signing out
+ * then would drop the tokens that request is about to store. Null, and signed out, when Cursor
  * refuses it; a refresh that could not be asked keeps the sign-in.
  */
 async function renew(deps: CursorDeps, actor: Actor, session: Session): Promise<Session | null> {
+  if (refreshing(session.tokens)) throw new GrokImportError("grok_unavailable");
   const refreshToken = session.tokens.refreshToken;
-  let answer: { status: number; body: unknown } | null = null;
-  if (refreshToken) {
-    try {
-      answer = await cursorRequest(deps, "/oauth/token", {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-cursor-client-type": "cli" },
-        body: JSON.stringify({
-          grant_type: "refresh_token",
-          client_id: CURSOR_CLI_CLIENT_ID,
-          refresh_token: refreshToken,
-        }),
-      });
-    } catch (error) {
-      warn("Cursor token refresh failed", error);
-      throw new GrokImportError("grok_unavailable");
-    }
-    if (answer.status === 429 || answer.status >= 500) {
-      throw new GrokImportError("grok_unavailable");
-    }
+  if (!refreshToken) {
+    await forget(deps, session.row);
+    return null;
+  }
+  const claim = await swap(deps, actor, session.row, {
+    ...session.tokens,
+    refreshingUntil: Date.now() + REFRESH_CLAIM_MS,
+  });
+  if (!claim) {
+    // Written since this request read it: newer tokens, or another request's claim.
+    const current = await currentSession(deps, actor.userId);
+    if (current && refreshing(current.tokens)) throw new GrokImportError("grok_unavailable");
+    return current;
+  }
+  const claimed = { ...session.row, ciphertext: claim };
+  let answer: { status: number; body: unknown };
+  try {
+    answer = await cursorRequest(deps, "/oauth/token", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-cursor-client-type": "cli" },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        client_id: CURSOR_CLI_CLIENT_ID,
+        refresh_token: refreshToken,
+      }),
+    });
+  } catch (error) {
+    warn("Cursor token refresh failed", error);
+    throw new GrokImportError("grok_unavailable");
+  }
+  if (answer.status === 429 || answer.status >= 500) {
+    throw new GrokImportError("grok_unavailable");
   }
   const tokens =
-    answer && answer.status >= 200 && answer.status < 300
-      ? tokensFrom(answer.body, refreshToken)
-      : null;
+    answer.status >= 200 && answer.status < 300 ? tokensFrom(answer.body, refreshToken) : null;
   if (!tokens) {
-    // Another request may have refreshed first, which spends a single-use refresh token.
-    const current = await currentSession(deps, actor.userId);
-    return current && current.row.ciphertext !== session.row.ciphertext ? current : null;
+    await forget(deps, claimed);
+    return null;
   }
-  const written = await swap(deps, actor, session.row, tokens);
+  const written = await swap(deps, actor, claimed, tokens);
   // When another write won, these tokens still answer the request in hand.
-  return { row: written ? { ...session.row, ciphertext: written } : session.row, tokens };
+  return { row: written ? { ...claimed, ciphertext: written } : claimed, tokens };
 }
 
 type DetailsAnswer =
@@ -436,9 +458,10 @@ export async function fetchGrokTemplate(
   let answer = await askDetails(deps, session.tokens.accessToken, shareId);
   if (answer.kind === "unauthenticated") {
     const renewed = await renew(deps, actor, session);
-    if (renewed) answer = await askDetails(deps, renewed.tokens.accessToken, shareId);
-    if (!renewed || answer.kind === "unauthenticated") {
-      await forget(deps, renewed?.row ?? session.row);
+    if (!renewed) throw new GrokImportError("cursor_signed_out");
+    answer = await askDetails(deps, renewed.tokens.accessToken, shareId);
+    if (answer.kind === "unauthenticated") {
+      await forget(deps, renewed.row);
       throw new GrokImportError("cursor_signed_out");
     }
   }
