@@ -307,8 +307,11 @@ export function grokPlan(
   const skills = skillItems(new Map(files), skillFiles);
   const sent = new Set(skills.skills.map((skill) => skill.name));
   const template = bot.template;
+  // An uploaded grok-bot.json can say anything; only a share link becomes a link.
+  const id = template && grokShareId(template.url);
+  const link = id && grokShareUrl(id) === template?.url ? template.url : null;
   const credit = template
-    ? `Based on the Grok Bot template ${template.url ? `[${template.name}](${template.url})` : template.name}${template.creator ? ` by ${template.creator}` : ""}.`
+    ? `Based on the Grok Bot template ${link ? `[${template.name}](${link})` : template.name}${template.creator ? ` by ${template.creator}` : ""}.`
     : "";
   const persona = [
     bot.title && bot.title.toLowerCase() !== bot.name.toLowerCase()
