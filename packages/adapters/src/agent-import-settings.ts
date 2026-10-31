@@ -1,5 +1,6 @@
 import type {
   AgentImportNeed,
+  AgentImportSource,
   AgentImportStatus,
   AgentImportWarning,
   McpServerConfigInput,
@@ -12,13 +13,15 @@ import {
   normalizeImportProvider,
   parseDotEnv,
   readAgentImportConfig,
+  readGrokBot,
 } from "@rakazo/core";
 import { isCatalogProviderBaseUrl, listPiCatalog } from "./pi-models.js";
 
 /**
  * Translates OpenClaw and Hermes settings (model, MCP servers, scheduled jobs, API keys)
  * into Rakazo's inputs. Mirrors what `hermes import-agent openclaw` and `openclaw migrate
- * hermes` carry over, plus scheduled jobs, which those tools only archive.
+ * hermes` carry over, plus scheduled jobs, which those tools only archive. A Grok Bot template
+ * has routines only.
  */
 
 type Json = Record<string, unknown>;
@@ -77,12 +80,26 @@ const text = (value: unknown) => (typeof value === "string" ? value.trim() : "")
  * `includeSecrets`; they are returned separately and never put in a preview.
  */
 export function readAgentImportSettings(
-  folder: { source: "openclaw" | "hermes"; root: string; files: Map<string, string> },
+  folder: {
+    source: Exclude<AgentImportSource, "document">;
+    root: string;
+    files: Map<string, string>;
+  },
   options: {
     includeSecrets: boolean;
     stdioAllowed?: (command: string) => boolean;
   },
 ): AgentImportSettings & { keyValues: Map<string, string> } {
+  if (folder.source === "grok") {
+    return {
+      model: null,
+      mcpServers: [],
+      routines: grokRoutines(folder.files),
+      apiKeys: [],
+      skipped: [],
+      keyValues: new Map(),
+    };
+  }
   const env = options.includeSecrets ? parseDotEnv(folder.files.get(".env") ?? "") : {};
   const configPath = folder.source === "hermes" ? "config.yaml" : "openclaw.json";
   const rawConfig = folder.files.get(configPath);
@@ -449,6 +466,34 @@ function routine(
     ],
     content: importedRoutineContent([cron], timezone, prompt),
   };
+}
+
+/**
+ * A Grok Bot asks the importing user for a time zone, so theirs replaces the creator's. Webhook,
+ * Slack and other event triggers are dropped, and say so.
+ */
+function grokRoutines(files: Map<string, string>): ImportedRoutine[] {
+  // By slug, as a template folder lists them.
+  const routines = [...(readGrokBot(files)?.routines ?? [])].sort((left, right) =>
+    left.slug < right.slug ? -1 : left.slug > right.slug ? 1 : 0,
+  );
+  return routines.map((routine) => {
+    const crons = routine.crons.filter(validCron);
+    const name = routine.name.slice(0, ROUTINE_NAME_MAX_LENGTH);
+    const path = `routines/${routine.slug}.md`;
+    const changed = crons.length !== routine.crons.length || routine.otherTriggers;
+    return {
+      id: `routine:${path}`,
+      title: name,
+      name,
+      prompt: routine.prompt,
+      crons,
+      path,
+      timezone: null,
+      warnings: changed ? ["changed_schedule"] : [],
+      content: importedRoutineContent(crons, null, routine.prompt),
+    };
+  });
 }
 
 /** Schedule and prompt, as the preview shows them. */

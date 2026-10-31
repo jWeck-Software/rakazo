@@ -10,7 +10,7 @@ export const AGENT_IMPORT_MAX_PATH_LENGTH = 300;
 
 /** The only non-Markdown files an import may send, optionally under the chosen folder's name. */
 const AGENT_IMPORT_CONFIG_PATH =
-  /^(?:[^/]+\/)?(?:openclaw\.json|\.env|config\.yaml|auth\.json|cron\/jobs\.json|skills\/\.bundled_manifest)$/;
+  /^(?:[^/]+\/)?(?:openclaw\.json|\.env|config\.yaml|auth\.json|cron\/jobs\.json|skills\/\.bundled_manifest|grok-bot\.json)$/;
 
 /** A relative Markdown or settings path: no absolute paths, no `..`, no empty segments. */
 export function isAgentImportPath(path: string): boolean {
@@ -44,8 +44,75 @@ export const AgentImportFilesSchema = z
     }
   });
 
-export const AgentImportSourceSchema = z.enum(["openclaw", "hermes", "document"]);
+export const AgentImportSourceSchema = z.enum(["openclaw", "hermes", "grok", "document"]);
 export type AgentImportSource = z.infer<typeof AgentImportSourceSchema>;
+
+/**
+ * `grok-bot.json`: a Grok Bot template, with each skill's text beside it in
+ * `skills/<name>/SKILL.md`.
+ */
+export const GrokBotFileSchema = z.object({
+  name: z.string(),
+  title: z.string(),
+  description: z.string(),
+  /** Standing instructions, in the template's words. */
+  profile: z.array(z.string()),
+  notes: z.array(z.string()),
+  skills: z.array(z.object({ name: z.string(), description: z.string() })),
+  routines: z.array(
+    z.object({
+      name: z.string(),
+      slug: z.string(),
+      prompt: z.string(),
+      crons: z.array(z.string()),
+      /** It also fires on a webhook, a Slack message or another event. */
+      otherTriggers: z.boolean(),
+    }),
+  ),
+  connectors: z.array(z.object({ name: z.string(), description: z.string() })),
+  /** The skill a new user starts with. */
+  gettingStarted: z.string().nullable(),
+  /** The shared template it came from. */
+  template: z
+    .object({ url: z.string(), name: z.string(), creator: z.string().nullable() })
+    .nullable(),
+});
+export type GrokBotFile = z.infer<typeof GrokBotFileSchema>;
+
+/** A Grok Bot template's recipe as Cursor serves it; other fields are dropped. */
+export const GrokRecipeSchema = z.object({
+  profile: z
+    .object({
+      name: z.string().default(""),
+      title: z.string().default(""),
+      description: z.string().default(""),
+    })
+    .default({ name: "", title: "", description: "" }),
+  memory: z.array(z.object({ kind: z.string().default(""), content: z.string() })).default([]),
+  skills: z
+    .array(
+      z.object({
+        name: z.string().default(""),
+        description: z.string().default(""),
+        content: z.string().default(""),
+      }),
+    )
+    .default([]),
+  routines: z
+    .array(
+      z.object({
+        slug: z.string().default(""),
+        name: z.string().default(""),
+        content: z.string().default(""),
+      }),
+    )
+    .default([]),
+  plugins: z
+    .array(z.object({ name: z.string().default(""), description: z.string().default("") }))
+    .default([]),
+  gettingStarted: z.object({ skill: z.string() }).optional(),
+});
+export type GrokRecipe = z.infer<typeof GrokRecipeSchema>;
 
 /**
  * Why an item may not work in Rakazo. Items with a warning start unticked;

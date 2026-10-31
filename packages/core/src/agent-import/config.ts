@@ -1,7 +1,8 @@
 import JSON5 from "json5";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { GROK_BOT_FILE } from "./grok.js";
 
-/** Settings files read from the root of an OpenClaw or Hermes home. */
+/** Settings files read from the root of an OpenClaw or Hermes home, and a Grok Bot's own. */
 export const AGENT_IMPORT_CONFIG_FILES = new Set([
   "openclaw.json",
   ".env",
@@ -9,6 +10,7 @@ export const AGENT_IMPORT_CONFIG_FILES = new Set([
   "auth.json",
   "cron/jobs.json",
   "skills/.bundled_manifest",
+  GROK_BOT_FILE,
 ]);
 
 /** Read only when the user opts in. */

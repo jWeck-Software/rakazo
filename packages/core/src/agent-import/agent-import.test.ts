@@ -273,7 +273,7 @@ describe("any other agent document", () => {
 describe("detection", () => {
   it("rejects files it does not recognise", () => {
     expect(parseAgentImport([{ path: "notes/todo.md", content: "Buy milk.\n" }])).toEqual({
-      error: "No OpenClaw, Hermes or agent document found.",
+      error: "No OpenClaw, Hermes, Grok Bot or agent document found.",
     });
     expect(parseAgentImport([{ path: "reply.md", content: "Just chatting.\n" }])).toHaveProperty(
       "error",
@@ -465,7 +465,7 @@ describe("OpenClaw home folder", () => {
     const several = [".openclaw/workspace-a/SOUL.md", ".openclaw/workspace-b/SOUL.md"];
     expect(agentImportFolder(several).files.size).toBe(0);
     expect(parseAgentImport(several.map((path) => ({ path, content: "Calm.\n" })))).toEqual({
-      error: "No OpenClaw, Hermes or agent document found.",
+      error: "No OpenClaw, Hermes, Grok Bot or agent document found.",
     });
   });
 

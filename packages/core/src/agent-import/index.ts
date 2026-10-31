@@ -17,6 +17,7 @@ import {
 } from "./config.js";
 import { looksLikeCredential } from "./credentials.js";
 import { isAgentDocument, parseAgentDocument } from "./document.js";
+import { grokPlan, isGrokTemplate, isGrokTemplateFile, readGrokBot } from "./grok.js";
 import {
   BUNDLED_MANIFEST,
   bundledSkillNames,
@@ -55,10 +56,18 @@ export {
 } from "./config.js";
 export { looksLikeCredential } from "./credentials.js";
 export { AGENT_IMPORT_PROMPT } from "./document.js";
+export {
+  type GrokBot,
+  grokBotFiles,
+  grokBotFromRecipe,
+  grokShareId,
+  grokShareUrl,
+  readGrokBot,
+} from "./grok.js";
 export { bundledSkillNames } from "./hermes.js";
 export type { AgentImportReader, SkillFiles } from "./shared.js";
 
-export const AGENT_IMPORT_NOT_FOUND = "No OpenClaw, Hermes or agent document found.";
+export const AGENT_IMPORT_NOT_FOUND = "No OpenClaw, Hermes, Grok Bot or agent document found.";
 
 const WORKSPACE_FILES = new Set<string>([
   ...OPENCLAW_INSTRUCTION_FILES.map(([path]) => path),
@@ -120,8 +129,6 @@ export function agentImportFolder(
 } {
   // Hermes' own skills (named in skills/.bundled_manifest) are never read or sent.
   const bundled = options.bundledSkills;
-  const candidate = (path: string) =>
-    isAgentImportCandidate(path) && !(bundled && isBundledSkill(path, bundled));
   const first = paths[0]?.split("/")[0] ?? "";
   const shared =
     first && !SOURCE_FOLDERS.has(first) && paths.every((path) => path.startsWith(`${first}/`));
@@ -129,6 +136,10 @@ export function agentImportFolder(
     (path) => [path, shared ? path.slice(first.length + 1) : path] as const,
   );
   const root = shared ? first : "";
+  const grok = isGrokTemplate(new Set(relative.map(([, path]) => path)));
+  const candidate = (path: string) =>
+    (isAgentImportCandidate(path) || (grok && isGrokTemplateFile(path))) &&
+    !(bundled && isBundledSkill(path, bundled));
   const workspaces = new Set(
     relative.flatMap(([, path]) => {
       const [folder = "", ...rest] = path.split("/");
@@ -294,16 +305,30 @@ export function parseAgentImport(
   }
   const folder = readAgentImportFolder(files, { includeSecrets: false });
   if (!folder) return { error: AGENT_IMPORT_NOT_FOUND };
-  const kept = [...folder.files].map(([path, content]) => ({ path, content }));
-  const parsed =
-    folder.source === "hermes"
-      ? parseHermes(kept, skillFiles)
-      : parseOpenClaw(kept, folder.root, skillFiles);
-  if (!parsed.instructions.length && !parsed.memory.length && !parsed.skills.length) {
+  const parsed = PARSERS[folder.source](folder, skillFiles);
+  if (!parsed || (!parsed.instructions.length && !parsed.memory.length && !parsed.skills.length)) {
     return { error: AGENT_IMPORT_NOT_FOUND };
   }
   return plan(folder.source, parsed);
 }
+
+const entries = (files: Map<string, string>) =>
+  [...files].map(([path, content]) => ({ path, content }));
+
+const PARSERS: Record<
+  Exclude<AgentImportSource, "document">,
+  (
+    folder: { root: string; files: Map<string, string> },
+    skillFiles: SkillFiles,
+  ) => AgentImportParse | null
+> = {
+  openclaw: ({ root, files }, skillFiles) => parseOpenClaw(entries(files), root, skillFiles),
+  hermes: ({ files }, skillFiles) => parseHermes(entries(files), skillFiles),
+  grok: ({ files }, skillFiles) => {
+    const bot = readGrokBot(files);
+    return bot && grokPlan(bot, files, skillFiles);
+  },
+};
 
 function isKnownAgentFile(path: string): boolean {
   const parts = path.split("/");
@@ -349,6 +374,7 @@ function detectSource(
   ) {
     return "hermes";
   }
+  if (isGrokTemplate(paths)) return "grok";
   return [...paths].some((path) => path.endsWith(".md")) ? "openclaw" : null;
 }
 
