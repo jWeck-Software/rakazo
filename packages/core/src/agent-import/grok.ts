@@ -1,4 +1,4 @@
-import type { AgentImportFile, GrokBotFile, GrokRecipe } from "@rakazo/contracts";
+import type { AgentImportFile, AgentImportSkill, GrokBotFile, GrokRecipe } from "@rakazo/contracts";
 import {
   AGENT_IMPORT_MAX_FILE_LENGTH,
   AGENT_IMPORT_MAX_FILES,
@@ -9,7 +9,14 @@ import {
 } from "@rakazo/contracts";
 import { buildSkillMd, parseSkillMd } from "../agent-skill.js";
 import type { AgentImportParse, SkillFiles } from "./shared.js";
-import { byPath, instructionItem, isSkillPath, memoryItem, skillItems } from "./shared.js";
+import {
+  byPath,
+  instructionItem,
+  isSkillPath,
+  memoryItem,
+  skillItem,
+  skillItems,
+} from "./shared.js";
 
 /*
  * Grok Bot templates, from Cursor's recipe or from a template folder. The folder layout, the
@@ -100,6 +107,41 @@ function routineText(text: string): Pick<GrokRoutine, "prompt" | "crons" | "othe
   return { prompt: prompt.join("\n").trim(), crons, otherTriggers };
 }
 
+/** A routine with no trigger waits for the user to pick a time, so the bot gets it as a skill. */
+export function grokRoutineIsSkill(
+  routine: Pick<GrokRoutine, "prompt" | "crons" | "otherTriggers">,
+): boolean {
+  return !routine.crons.length && !routine.otherTriggers && routine.prompt.trim() !== "";
+}
+
+function routineSkills(
+  routines: readonly GrokRoutine[],
+): Pick<AgentImportParse, "skills" | "skipped"> {
+  const used = new Set<string>();
+  const skills: AgentImportSkill[] = [];
+  const skipped: AgentImportParse["skipped"] = [];
+  for (const routine of routines.filter(grokRoutineIsSkill)) {
+    const slug = slugOf(routine.slug, used, "routine");
+    const path = `routines/${slug}.md`;
+    const name = oneLine(routine.name, 80) || slug;
+    const description = oneLine(
+      `Use when the user wants the ${name} routine set up or run. ${routine.description}`,
+      1_024,
+    );
+    const body = [
+      `Offer the ${name} routine when relevant. Once the user names a time, and their time zone if you do not know it, create it for this bot with schedule_create, named "${name}", with everything after this paragraph as its prompt. If they ask, run it once now.`,
+      routine.prompt.trim(),
+    ].join("\n\n");
+    const item = skillItem(
+      `skills:${path}`,
+      buildSkillMd({ name: `routine-${slug}`, description, body: `${body}\n` }),
+    );
+    if (item) skills.push(item);
+    else skipped.push({ path, reason: "invalid_skill" });
+  }
+  return { skills, skipped };
+}
+
 /** pi-grokbot-import's `toSkillSlug`, so a template's link and folder name skills alike. */
 function slugOf(name: string, used: Set<string>, fallback: string): string {
   const base =
@@ -151,7 +193,12 @@ export function grokBotFromRecipe(recipe: GrokRecipe, template: GrokTemplate): G
     skills: skills.map(({ name, description, body }) => ({ name, description, body })),
     routines: recipe.routines.map((routine) => {
       const slug = slugOf(routine.slug || routine.name, usedRoutines, "routine");
-      return { name: routine.name.trim() || slug, slug, ...routineText(routine.content) };
+      return {
+        name: routine.name.trim() || slug,
+        slug,
+        description: routine.description.trim(),
+        ...routineText(routine.content),
+      };
     }),
     connectors: recipe.plugins.flatMap((plugin) =>
       plugin.name.trim() ? [{ name: plugin.name.trim(), description: plugin.description }] : [],
@@ -246,10 +293,20 @@ function grokBotFromFolder(files: ReadonlyMap<string, string>): GrokBotFile {
       const [first = "", ...rest] = lines(files.get(path) ?? "");
       const heading = /^#\s+Routine:\s*(.+)$/.exec(first.trim());
       const body = heading ? rest : [first, ...rest];
-      // The `> summary` under the title describes the routine to people, not to the bot.
+      // The `> summary` under the title is the routine's description, not part of its prompt.
       const start = body.findIndex((line) => line.trim());
-      if (start >= 0 && body[start]!.trim().startsWith(">")) body.splice(start, 1);
-      return [{ name: heading?.[1]?.trim() || slug, slug, ...routineText(body.join("\n")) }];
+      const summary =
+        start >= 0 && body[start]!.trim().startsWith(">")
+          ? body.splice(start, 1)[0]!.trim().slice(1).trim()
+          : "";
+      return [
+        {
+          name: heading?.[1]?.trim() || slug,
+          slug,
+          description: summary,
+          ...routineText(body.join("\n")),
+        },
+      ];
     }),
     connectors: lines(files.get("CONNECTORS.md") ?? "").flatMap((line) => {
       const cells = /^\|(.*)\|$/
@@ -306,6 +363,7 @@ export function grokPlan(
 ): AgentImportParse {
   const skills = skillItems(new Map(files), skillFiles);
   const sent = new Set(skills.skills.map((skill) => skill.name));
+  const routines = routineSkills(bot.routines);
   const template = bot.template;
   // An uploaded grok-bot.json can say anything; only a share link becomes a link.
   const id = template && grokShareId(template.url);
@@ -333,7 +391,8 @@ export function grokPlan(
       ? [instructionItem("AGENTS.md", `${persona}\n`, { role: "persona" })]
       : [],
     memory: notes ? [memoryItem("MEMORY.md", "MEMORY.md", "MEMORY.md", `${notes}\n`)] : [],
-    skills: skills.skills,
+    // After the template's own skills, so a name clash renames the routine's.
+    skills: [...skills.skills, ...routines.skills],
     skipped: [
       // A Grok plugin carries nothing an MCP server could be made from.
       ...bot.connectors.map((connector) => ({
@@ -348,6 +407,7 @@ export function grokPlan(
           reason: "invalid_skill" as const,
         })),
       ...skills.skipped,
+      ...routines.skipped,
     ].sort(byPath),
   };
 }

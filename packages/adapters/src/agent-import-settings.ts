@@ -8,6 +8,7 @@ import type {
 import { isValidTimeZone, McpServerConfigInput as McpServerConfigSchema } from "@rakazo/contracts";
 import {
   AGENT_IMPORT_PROVIDER_KEYS,
+  grokRoutineIsSkill,
   mcpServerImportable,
   nextCronDateAcrossStrict,
   normalizeImportProvider,
@@ -470,13 +471,13 @@ function routine(
 
 /**
  * A Grok Bot asks the importing user for a time zone, so theirs replaces the creator's. Webhook,
- * Slack and other event triggers are dropped, and say so.
+ * Slack and other event triggers are dropped, and say so. A routine with no trigger is a skill.
  */
 function grokRoutines(files: Map<string, string>): ImportedRoutine[] {
   // By slug, as a template folder lists them.
-  const routines = [...(readGrokBot(files)?.routines ?? [])].sort((left, right) =>
-    left.slug < right.slug ? -1 : left.slug > right.slug ? 1 : 0,
-  );
+  const routines = (readGrokBot(files)?.routines ?? [])
+    .filter((routine) => !grokRoutineIsSkill(routine))
+    .sort((left, right) => (left.slug < right.slug ? -1 : left.slug > right.slug ? 1 : 0));
   return routines.map((routine) => {
     const crons = routine.crons.filter(validCron);
     const name = routine.name.slice(0, ROUTINE_NAME_MAX_LENGTH);

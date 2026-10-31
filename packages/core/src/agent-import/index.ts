@@ -67,6 +67,7 @@ export {
   type GrokBot,
   grokBotFiles,
   grokBotFromRecipe,
+  grokRoutineIsSkill,
   grokShareId,
   grokShareUrl,
   readGrokBot,

@@ -63,6 +63,8 @@ export const GrokBotFileSchema = z.object({
     z.object({
       name: z.string(),
       slug: z.string(),
+      /** Its one-line summary. Older files have none. */
+      description: z.string().default(""),
       prompt: z.string(),
       crons: z.array(z.string()),
       /** It also fires on a webhook, a Slack message or another event. */
@@ -103,6 +105,7 @@ export const GrokRecipeSchema = z.object({
       z.object({
         slug: z.string().default(""),
         name: z.string().default(""),
+        description: z.string().default(""),
         content: z.string().default(""),
       }),
     )

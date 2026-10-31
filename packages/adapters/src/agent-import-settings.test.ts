@@ -696,6 +696,9 @@ describe("Grok Bot routines", () => {
       name: "Broken clock",
       content: fires("Never runs.", "cron `61 * * * *`"),
     },
+    // No trigger: a skill, neither a routine nor skipped.
+    { slug: "tide-note", name: "Tide note", content: "Note the tides." },
+    { slug: "blank", name: "Blank", content: "" },
   ];
   const expected = [
     {
@@ -711,6 +714,13 @@ describe("Grok Bot routines", () => {
       prompt: "Audit the berths.",
       crons: ["30 9 * * 1"],
       warnings: ["changed_schedule"],
+    },
+    {
+      name: "Blank",
+      path: "routines/blank.md",
+      prompt: "",
+      crons: [],
+      warnings: [],
     },
     {
       name: "Broken clock",

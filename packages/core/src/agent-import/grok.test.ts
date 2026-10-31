@@ -46,7 +46,15 @@ const recipe: GrokRecipe = GrokRecipeSchema.parse({
       content: "Pick the earliest free slot.\n",
     },
   ],
-  routines: [{ slug: "morning-slot-check", name: "Morning slot check", content: morningCheck }],
+  routines: [
+    { slug: "morning-slot-check", name: "Morning slot check", content: morningCheck },
+    {
+      slug: "evening-wrap",
+      name: "Evening wrap",
+      description: "Invented evening summary.",
+      content: "Sum up the day's bookings.",
+    },
+  ],
   plugins: [{ name: "Example Calendar", description: "Reads a calendar." }],
   gettingStarted: { skill: "harbor-desk-getting-started" },
 });
@@ -108,6 +116,8 @@ const folder: Record<string, string> = {
     "",
   ].join("\n"),
   "routines/morning-slot-check.md": `# Routine: Morning slot check\n\n> Invented summary for people.\n\n${morningCheck}\n`,
+  "routines/evening-wrap.md":
+    "# Routine: Evening wrap\n\n> Invented evening summary.\n\nSum up the day's bookings.\n",
   "skills/harbor-desk-getting-started/SKILL.md":
     "---\nname: harbor-desk-getting-started\ndescription: Start here with a new user.\n---\n# Getting started\n\nAsk for the yard name.\n",
   "skills/slot-planner/SKILL.md":
@@ -164,9 +174,18 @@ describe("Grok Bot recipe", () => {
     expect(result.skills.map(({ name, description }) => ({ name, description }))).toEqual([
       { name: "harbor-desk-getting-started", description: "Start here with a new user." },
       { name: "slot-planner", description: "Plans slots." },
+      {
+        name: "routine-evening-wrap",
+        description:
+          "Use when the user wants the Evening wrap routine set up or run. Invented evening summary.",
+      },
     ]);
     const planner = parseSkillMd(result.skills[1]!.content);
     expect(planner).toMatchObject({ name: "slot-planner", body: "Pick the earliest free slot.\n" });
+    expect(result.skills[2]).toMatchObject({ warnings: [], status: { kind: "ready" } });
+    expect(parseSkillMd(result.skills[2]!.content)).toMatchObject({
+      body: 'Offer the Evening wrap routine when relevant. Once the user names a time, and their time zone if you do not know it, create it for this bot with schedule_create, named "Evening wrap", with everything after this paragraph as its prompt. If they ask, run it once now.\n\nSum up the day\'s bookings.\n',
+    });
     expect(result.skipped).toEqual([
       { path: "CONNECTORS.md: Example Calendar", reason: "unsupported" },
     ]);
@@ -206,6 +225,25 @@ describe("Grok Bot recipe", () => {
     });
   });
 
+  it("keeps a template skill's name when a routine's skill would take it", () => {
+    const result = plan(
+      fromRecipe(
+        GrokRecipeSchema.parse({
+          profile: { name: "Harbor Desk" },
+          skills: [{ name: "routine-evening-wrap", content: "Template skill.\n" }],
+          routines: [{ slug: "evening-wrap", name: "Evening wrap", content: "Sum up the day." }],
+        }),
+      ),
+    );
+    expect(result.skills.map((skill) => skill.name)).toEqual([
+      "routine-evening-wrap",
+      "routine-evening-wrap-2",
+    ]);
+    expect(parseSkillMd(result.skills[1]!.content)).toMatchObject({
+      name: "routine-evening-wrap-2",
+    });
+  });
+
   it("falls back to the template's name when the recipe has none", () => {
     const result = plan(fromRecipe(GrokRecipeSchema.parse({ profile: { name: "  " } })));
     expect(result.suggestedName).toBe("Harbor Desk");
@@ -225,6 +263,7 @@ describe("Grok Bot template folder", () => {
         "CONNECTORS.md",
         "MEMORY.md",
         "README.md",
+        "routines/evening-wrap.md",
         "routines/morning-slot-check.md",
         "skills/harbor-desk-getting-started/SKILL.md",
         "skills/slot-planner/SKILL.md",
