@@ -7,6 +7,7 @@ import { grokBotFiles, grokBotFromRecipe, grokShareUrl } from "@rakazo/core";
 import type { CursorSession, PrismaClient } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { z } from "zod";
+import { INFISICAL_REF_PREFIX } from "./infisical-secret-store.js";
 import { isUniqueViolation } from "./run-messages.js";
 import { deleteSecretBestEffort } from "./secret-store-factory.js";
 import type { SafeWebFetchOptions } from "./web-ssrf.js";
@@ -33,8 +34,6 @@ const RECIPE_HOSTS = new Set([
 const SIGN_IN_WINDOW_MS = 10 * 60_000;
 const TIMEOUT_MS = 20_000;
 const MAX_ANSWER_BYTES = 4 * 1024 * 1024;
-/** The local encrypted store's format, the only one an ephemeral secret is written in. */
-const LOCAL_SEALED_PREFIX = "v2:";
 
 export interface CursorDeps {
   prisma: PrismaClient;
@@ -165,7 +164,8 @@ export async function startCursorSignIn(
 
 /** This user's unexpired sign-in, or null for anything else a client sends. */
 async function openSignIn(deps: Pick<CursorDeps, "secretStore">, actor: Actor, pending: string) {
-  if (!pending.startsWith(LOCAL_SEALED_PREFIX)) return null;
+  // Sealed locally, so never a reference the remote store would look up.
+  if (pending.startsWith(INFISICAL_REF_PREFIX)) return null;
   try {
     const plaintext = await deps.secretStore.load(pending, {
       recordId: signInRecord(actor.userId),
