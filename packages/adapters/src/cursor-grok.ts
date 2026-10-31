@@ -130,10 +130,10 @@ async function cursorRequest(
 function tokensFrom(body: unknown, previousRefresh: string | null = null): Tokens | null {
   const fields = z
     .object({
-      accessToken: z.string().optional(),
-      access_token: z.string().optional(),
-      refreshToken: z.string().optional(),
-      refresh_token: z.string().optional(),
+      accessToken: z.string().nullish(),
+      access_token: z.string().nullish(),
+      refreshToken: z.string().nullish(),
+      refresh_token: z.string().nullish(),
     })
     .safeParse(body);
   if (!fields.success) return null;

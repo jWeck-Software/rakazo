@@ -405,15 +405,29 @@ describe("reading a Grok Bot template", () => {
     expect(env.requests()).toEqual([DETAILS, DOWNLOAD]);
   });
 
-  it("keeps the refresh token when Cursor's refresh answer leaves it out", async () => {
+  it("keeps the refresh token when Cursor's refresh answer leaves it out or null", async () => {
     const env = setup();
     await signIn(env);
-    cursor(env, { valid: ["access-2"], refresh: () => json({ access_token: "access-2" }) });
-    await fetchGrokTemplate(env.deps, ALICE, SHARE_ID);
-    env.requests();
-    cursor(env, { valid: ["access-3"], refresh: () => json({ access_token: "access-3" }) });
-    await fetchGrokTemplate(env.deps, ALICE, SHARE_ID);
-    expect(JSON.parse(env.sent[1]!.body)).toMatchObject({ refresh_token: "refresh-1" });
+    const answers = [
+      { access_token: "access-2" },
+      { access_token: "access-3", refresh_token: null },
+      { access_token: "access-4", refreshToken: null },
+      { access_token: "access-5" },
+    ];
+    for (const [index, answer] of answers.entries()) {
+      cursor(env, { valid: [answer.access_token], refresh: () => json(answer) });
+      await fetchGrokTemplate(env.deps, ALICE, SHARE_ID);
+      if (index)
+        expect(JSON.parse(env.sent[1]!.body)).toMatchObject({ refresh_token: "refresh-1" });
+      env.requests();
+    }
+  });
+
+  it("signs in when Cursor's answer has a null refresh token", async () => {
+    const env = setup();
+    const { pending } = await startCursorSignIn(env.deps, ALICE);
+    env.answer(() => json({ accessToken: "access-1", refreshToken: null }));
+    expect(await pollCursorSignIn(env.deps, ALICE, pending)).toEqual({ status: "signed_in" });
   });
 
   it("signs out when Cursor refuses the refresh or the refreshed token", async () => {
