@@ -13,15 +13,19 @@ export * from "./billing-emulator.js";
 export * from "./boat-sandbox.js";
 export * from "./bot-avatar.js";
 export * from "./bot-messages.js";
+export type { BotSecretScope } from "./bot-secrets.js";
 export {
+  assertVaultInUse,
   forgetBotSecret,
   getBotSecretMetadata,
   listBotSecretMetadata,
+  lockVault,
   normalizeSecretDestination,
   pageUrlOrigin,
   revealBotSecret,
   SPACE_VAULT_NOT_IN_USE,
   storeBotSecret,
+  vaultFields,
 } from "./bot-secrets.js";
 export * from "./boxd-sandbox.js";
 export * from "./browser-emulator.js";

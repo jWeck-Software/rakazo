@@ -46,6 +46,13 @@ import type { AgentImportServices } from "../agent-import.js";
 import { agentImportSetupState, createImportedBot, previewAgentImport } from "../agent-import.js";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "../agent-secrets.js";
 import { changedBotSettings } from "../bot-setting-analytics.js";
+import {
+  connectVaultwarden,
+  credentialSourceCollections,
+  credentialSourceStatus,
+  disconnectCredentialSource,
+  setCredentialSourceCollections,
+} from "../credential-sources.js";
 import { requireIdentityConfirmation } from "../identity-confirmation.js";
 import type { RouterDeps } from "../router.js";
 import { loadMessagePage } from "../thread-message-pages.js";
@@ -737,6 +744,33 @@ export function botsRoutes(ctx: RouterContext) {
         await forgetBotSecret(deps.prisma, vaultScope(context.actor, input.scope), input.name);
         return { ok: true as const };
       }),
+      source: {
+        status: authed.vault.source.status.handler(({ context, input }) =>
+          credentialSourceStatus(deps, vaultScope(context.actor, input?.scope)),
+        ),
+        connect: authed.vault.source.connect.handler(({ context, input: { scope, ...input } }) =>
+          connectVaultwarden(deps, vaultScope(context.actor, scope), input, context.signal),
+        ),
+        collections: authed.vault.source.collections.handler(async ({ context, input }) => ({
+          collections: await credentialSourceCollections(
+            deps,
+            vaultScope(context.actor, input?.scope),
+            context.signal,
+          ),
+        })),
+        setCollections: authed.vault.source.setCollections.handler(({ context, input }) =>
+          setCredentialSourceCollections(
+            deps,
+            vaultScope(context.actor, input.scope),
+            input.collectionIds,
+            context.signal,
+          ),
+        ),
+        disconnect: authed.vault.source.disconnect.handler(async ({ context, input }) => {
+          await disconnectCredentialSource(deps, vaultScope(context.actor, input?.scope));
+          return { ok: true as const };
+        }),
+      },
     },
     botSecrets: {
       list: authed.botSecrets.list.handler(async ({ context, input }) => {

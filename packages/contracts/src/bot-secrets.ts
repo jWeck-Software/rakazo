@@ -577,6 +577,48 @@ export const VaultRevealed = z.union([
 ]);
 export type VaultRevealed = z.infer<typeof VaultRevealed>;
 
+/** A vault's password-manager connection. Its credentials and the logins it reads stay on the server. */
+export const CredentialSourceStatus = z.discriminatedUnion("connected", [
+  z.object({ connected: z.literal(false) }),
+  z.object({
+    connected: z.literal(true),
+    provider: z.literal("vaultwarden"),
+    origin: z.string(),
+    email: z.string(),
+    collectionIds: z.array(z.string()),
+    lastSyncedAt: z.string().nullable(),
+    lastSyncError: z.string().nullable(),
+  }),
+]);
+export type CredentialSourceStatus = z.infer<typeof CredentialSourceStatus>;
+
+/** The master password unlocks the vault once on the server and is never stored or returned. */
+export const VaultwardenConnectInput = settingsScopeInput.extend({
+  baseUrl: z.string().trim().min(1).max(2048),
+  clientId: z.string().trim().min(1).max(256),
+  clientSecret: z.string().trim().min(1).max(256),
+  masterPassword: z.string().min(1).max(1024),
+});
+export type VaultwardenConnectInput = z.infer<typeof VaultwardenConnectInput>;
+
+export const CredentialSourceCollection = z.object({
+  id: z.string(),
+  name: z.string(),
+  organizationName: z.string().optional(),
+  hidePasswords: z.boolean(),
+  readOnly: z.boolean(),
+});
+export type CredentialSourceCollection = z.infer<typeof CredentialSourceCollection>;
+
+export const VaultwardenCollectionsOutput = z.object({
+  collections: z.array(CredentialSourceCollection),
+});
+export type VaultwardenCollectionsOutput = z.infer<typeof VaultwardenCollectionsOutput>;
+
+export const CredentialSourceCollectionsInput = settingsScopeInput.extend({
+  collectionIds: z.array(z.string().min(1).max(64)).max(500),
+});
+
 /**
  * What the owner can see about a saved credential. It never carries the protected value.
  * `name` is read loosely and `auth` is nullable so one stored row that no longer passes the

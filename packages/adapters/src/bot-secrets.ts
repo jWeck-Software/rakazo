@@ -46,7 +46,10 @@ type VaultClient = Pick<PrismaClient, "spaceSettingOverride">;
  * Orders a vault write after any change of vault (the member's settings lock) and after every
  * other write by the member, since Spaces without their own vault share the account's.
  */
-async function lockVault(tx: Pick<Prisma.TransactionClient, "$queryRaw">, scope: BotSecretScope) {
+export async function lockVault(
+  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  scope: BotSecretScope,
+) {
   await lockSpaceSettings(tx, scope);
   await tx.$queryRaw`SELECT id FROM "user" WHERE id = ${scope.userId} FOR UPDATE`;
 }
@@ -57,7 +60,7 @@ export const SPACE_VAULT_NOT_IN_USE = "This Space uses the account vault";
  * A write aimed at a Space's own vault is refused once the Space stops customizing credentials,
  * since nothing would read it and it would only wait to be deleted.
  */
-async function assertVaultInUse(client: VaultClient, scope: BotSecretScope) {
+export async function assertVaultInUse(client: VaultClient, scope: BotSecretScope) {
   if (scope.vault !== "space") return;
   if ((await settingsTarget(client, scope, "credentials")) !== "space") {
     throw new Error(SPACE_VAULT_NOT_IN_USE);
@@ -65,7 +68,7 @@ async function assertVaultInUse(client: VaultClient, scope: BotSecretScope) {
 }
 
 /** The vault rows a call reads and writes: the account's (no Space) or the Space's own. */
-async function vaultFields(client: VaultClient, scope: BotSecretScope) {
+export async function vaultFields(client: VaultClient, scope: BotSecretScope) {
   const target = await settingsTarget(client, scope, "credentials", scope.vault);
   return { userId: scope.userId, spaceId: target === "space" ? scope.spaceId : null };
 }

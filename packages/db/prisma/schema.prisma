@@ -55,6 +55,7 @@ model User {
   createdSpaces               Space[]                      @relation("SpaceCreator")
   botSecrets BotSecret[]
   vaultCredentials VaultCredential[]
+  credentialSources CredentialSource[]
   agentSecrets               AgentSecret[]
   createdTickets              Ticket[]                     @relation("TicketCreatorUser")
   ticketComments              TicketComment[]              @relation("TicketCommentAuthorUser")
@@ -400,6 +401,7 @@ model Space {
   chatGroups                  ChatGroup[]
   botSecrets                  BotSecret[]
   vaultCredentials            VaultCredential[]
+  credentialSources           CredentialSource[]
   externalConversations       ExternalConversation[]
   agentSecrets                AgentSecret[]
   board                       Board?
@@ -1553,6 +1555,7 @@ model Secret {
   mcpServers        McpServer[]
   spaceMemoryConfig SpaceMemoryConfig?
   agentSecret       AgentSecret?
+  credentialSource  CredentialSource?
 
   @@index([userId, spaceId])
   @@map("secrets")
@@ -1798,6 +1801,28 @@ model VaultCredential {
   @@index([spaceId])
   // Unique index vault_credentials_userId_spaceId_name_key (NULLS NOT DISTINCT) is created in SQL.
   @@map("vault_credentials")
+}
+
+/// A password manager a vault reads logins from. Null spaceId is the account vault, as for VaultCredential.
+model CredentialSource {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spaceId       String?
+  space         Space?    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  provider      String
+  /// Non-secret: { email, collectionIds }.
+  settings      Json
+  secretId      String    @unique
+  secret        Secret    @relation(fields: [secretId], references: [id], onDelete: Cascade)
+  lastSyncedAt  DateTime?
+  lastSyncError String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([spaceId])
+  // Unique index credential_sources_userId_spaceId_key (NULLS NOT DISTINCT) is created in SQL.
+  @@map("credential_sources")
 }
 
 model ExternalConversation {

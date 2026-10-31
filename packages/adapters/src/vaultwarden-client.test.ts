@@ -81,6 +81,7 @@ describe("deriveVaultwardenCredentials", () => {
         {
           id: WEBSITES,
           organizationId: "5074d654-69e5-4162-8aa9-2fc48a002d28",
+          organizationName: "Spike Org",
           name: "Websites",
           readOnly: false,
           hidePasswords: false,
@@ -88,6 +89,7 @@ describe("deriveVaultwardenCredentials", () => {
         {
           id: HIDDEN_PW,
           organizationId: "5074d654-69e5-4162-8aa9-2fc48a002d28",
+          organizationName: "Spike Org",
           name: "Hidden-PW",
           readOnly: false,
           hidePasswords: false,

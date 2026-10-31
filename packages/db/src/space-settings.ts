@@ -18,6 +18,7 @@ type CopyClient = Pick<
   | "actionAutoReviewPreference"
   | "userActionAutoReviewPreference"
   | "vaultCredential"
+  | "secret"
 >;
 
 /** The settings this Space replaces with its own for the member. */
@@ -111,6 +112,8 @@ async function clearSpaceCopy(tx: CopyClient, scope: Scope, setting: SpaceSettin
     await tx.spaceVoicePreference.deleteMany({ where: member });
   } else if (setting === "credentials") {
     await tx.vaultCredential.deleteMany({ where: member });
+    // The source row goes with its secret.
+    await tx.secret.deleteMany({ where: { credentialSource: { is: member } } });
   } else {
     await tx.actionApprovalRule.deleteMany({
       where: { spaceId: scope.spaceId, createdByUserId: scope.userId },

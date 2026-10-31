@@ -96,6 +96,8 @@ export interface RouterDeps {
   mcp?: Pick<McpConnector, "probe">;
   connectors: ConnectorRegistry;
   remoteConnectors?: RemoteConnectorDependencies;
+  /** Called after a vault's password-manager connection or its collections change. */
+  onCredentialSourceChanged?: (sourceId: string) => void | Promise<void>;
   pluginRepoFetcher?: PluginRepoFetcher;
   pluginMarketplaceRead?: PluginTextReader;
   artifacts: ArtifactStore;

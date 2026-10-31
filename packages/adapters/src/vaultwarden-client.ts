@@ -25,9 +25,44 @@ export interface VaultwardenCredentials {
   userKey: string;
 }
 
+const credentialsSchema = z.object({
+  baseUrl: z.string(),
+  clientId: z.string(),
+  clientSecret: z.string(),
+  userKey: z.string(),
+});
+
+/** Reads a stored connection. The error never quotes the plaintext. */
+export function parseVaultwardenCredentials(plaintext: string): VaultwardenCredentials {
+  try {
+    return credentialsSchema.parse(JSON.parse(plaintext));
+  } catch {
+    throw new Error("The saved Vaultwarden connection is unreadable");
+  }
+}
+
+const sourceSettingsSchema = z.object({
+  origin: z.string(),
+  email: z.string(),
+  collectionIds: z.array(z.string()),
+});
+
+/** A source row's non-secret settings: the server origin, the account, and the chosen collections. */
+export type VaultwardenSourceSettings = z.infer<typeof sourceSettingsSchema>;
+
+export function parseVaultwardenSourceSettings(value: unknown): VaultwardenSourceSettings {
+  return sourceSettingsSchema.parse(value);
+}
+
+/** Every vault_credentials row a source creates stores this prefix plus the cipher id as its ciphertext. */
+export function vaultwardenRefPrefix(sourceId: string): string {
+  return `vaultwarden:v1:${sourceId}:`;
+}
+
 export interface VaultwardenCollection {
   id: string;
   organizationId: string;
+  organizationName?: string;
   name: string;
   readOnly: boolean;
   hidePasswords: boolean;
@@ -58,6 +93,7 @@ export interface VaultwardenScope {
 }
 
 export interface VaultwardenClient {
+  collections(signal?: AbortSignal): Promise<VaultwardenCollection[]>;
   logins(scope: VaultwardenScope): Promise<VaultwardenLogin[]>;
   login(request: VaultwardenScope & { cipherId: string }): Promise<VaultwardenLogin | undefined>;
 }
@@ -111,7 +147,7 @@ const syncSchema = z.object({
   profile: z.object({
     email: z.string(),
     privateKey: z.string(),
-    organizations: z.array(z.object({ id: z.string(), key: nullableString })),
+    organizations: z.array(z.object({ id: z.string(), name: nullableString, key: nullableString })),
   }),
   collections: z.array(z.unknown()),
   ciphers: z.array(z.unknown()),
@@ -306,16 +342,19 @@ function organizationKeys(sync: Sync, user: SymmetricKey): OrganizationKeys {
 }
 
 function decryptCollections(sync: Sync, keys: OrganizationKeys): VaultwardenCollection[] {
+  const names = new Map(sync.profile.organizations.map((org) => [org.id, org.name]));
   return sync.collections.flatMap((raw) => {
     const collection = collectionSchema.safeParse(raw);
     if (!collection.success) return [];
     const key = keys.get(collection.data.organizationId);
     if (!key) return [];
+    const organizationName = names.get(collection.data.organizationId);
     try {
       return [
         {
           id: collection.data.id,
           organizationId: collection.data.organizationId,
+          ...(organizationName ? { organizationName } : {}),
           name: decryptText(collection.data.name, key),
           readOnly: collection.data.readOnly === true,
           hidePasswords: collection.data.hidePasswords === true,
@@ -514,6 +553,10 @@ export function createVaultwardenClient(
   };
 
   return {
+    collections: async (signal) => {
+      const data = await sync(signal);
+      return decryptCollections(data, organizationKeys(data, userKey));
+    },
     logins: (scope) => read(scope),
     login: async ({ cipherId, ...scope }) => (await read(scope, cipherId))[0],
   };

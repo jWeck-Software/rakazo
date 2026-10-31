@@ -36,12 +36,16 @@ import {
 import {
   BotSecretMetadata,
   BotSecretPutInput,
+  CredentialSourceCollectionsInput,
+  CredentialSourceStatus,
   LOGIN_FIELD_LIMIT,
   LoginFieldInput,
   StoredBotSecretName,
   VaultPutInput,
   VaultRevealed,
   VaultRevealInput,
+  VaultwardenCollectionsOutput,
+  VaultwardenConnectInput,
 } from "./bot-secrets.js";
 import {
   AccountItemSchema,
@@ -1359,6 +1363,20 @@ export const appContract = {
     remove: oc
       .input(settingsScopeInput.extend({ name: StoredBotSecretName }))
       .output(z.object({ ok: z.literal(true) })),
+    /** The password manager a vault reads logins from. Its passwords are never revealed here. */
+    source: {
+      status: oc.input(settingsScopeInput.optional()).output(CredentialSourceStatus),
+      /** Unlocks the vault once to prove the connection; BAD_REQUEST when it cannot. */
+      connect: oc.input(VaultwardenConnectInput).output(
+        z.object({
+          status: CredentialSourceStatus,
+          collections: VaultwardenCollectionsOutput.shape.collections,
+        }),
+      ),
+      collections: oc.input(settingsScopeInput.optional()).output(VaultwardenCollectionsOutput),
+      setCollections: oc.input(CredentialSourceCollectionsInput).output(CredentialSourceStatus),
+      disconnect: oc.input(settingsScopeInput.optional()).output(z.object({ ok: z.literal(true) })),
+    },
   },
   /** The vault this Space uses, for apps that predate it. The bot only checks access. */
   botSecrets: {
