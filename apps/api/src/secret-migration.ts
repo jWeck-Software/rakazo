@@ -1,4 +1,5 @@
 import type { SecretMigrationRepository, SecretMigrationRow } from "@rakazo/adapters";
+import { isVaultwardenRef } from "@rakazo/adapters";
 import type { PrismaClient } from "@rakazo/db";
 
 const tables = ["secret", "botSecret", "vaultCredential", "integrationProviderConfig"] as const;
@@ -17,7 +18,9 @@ export function createSecretMigrationRepository(prisma: PrismaClient): SecretMig
               ...(cursor ? { where: { id: { gt: cursor } } } : {}),
             },
           ])) as Array<{ id: string; ciphertext: string; kind?: string }>;
-          for (const row of batch)
+          for (const row of batch) {
+            // A Vaultwarden pointer holds no value here to decrypt or move.
+            if (isVaultwardenRef(row.ciphertext)) continue;
             yield {
               id: row.id,
               label,
@@ -26,6 +29,7 @@ export function createSecretMigrationRepository(prisma: PrismaClient): SecretMig
                 label === "integrationProviderConfig" ? `integration-provider:${row.id}` : row.id,
               ephemeral: row.kind?.startsWith("run-secret:"),
             };
+          }
           if (batch.length < 100) break;
           cursor = batch.at(-1)?.id;
         }

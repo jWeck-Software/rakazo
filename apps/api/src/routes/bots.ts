@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { ORPCError } from "@orpc/server";
 import { runContinueJob } from "@rakazo/adapter-kit";
-import type { getBotSecretMetadata } from "@rakazo/adapters";
 import {
   archiveBot,
   checkpointAndStopComputer,
   forgetBotSecret,
+  getBotSecretMetadata,
   hasActiveComputerControl,
   listBotSecretMetadata,
   normalizeSecretDestination,
@@ -15,6 +15,7 @@ import {
   stopCancelledGroupRuns,
   storeBotSecret,
   toComputerRef,
+  VaultwardenManagedError,
   validateBotModelChange,
 } from "@rakazo/adapters";
 import type {
@@ -87,8 +88,9 @@ const BOT_SECRET_INPUT_ERRORS = [
 /** A credential the user typed that cannot be stored, as a bad request. Never echoes the value. */
 export function mapBotSecretInputError(error: unknown): unknown {
   if (
-    error instanceof Error &&
-    BOT_SECRET_INPUT_ERRORS.some((prefix) => error.message.startsWith(prefix))
+    error instanceof VaultwardenManagedError ||
+    (error instanceof Error &&
+      BOT_SECRET_INPUT_ERRORS.some((prefix) => error.message.startsWith(prefix)))
   ) {
     return new ORPCError("BAD_REQUEST", { message: error.message });
   }
@@ -719,14 +721,23 @@ export function botsRoutes(ctx: RouterContext) {
         saveVaultCredential(deps, vaultScope(context.actor, input.scope), input),
       ),
       reveal: authed.vault.reveal.handler(async ({ context, input }) => {
-        await requireIdentityConfirmation(deps.auth, context);
         // Resolved here, so the event names the vault that was read even when scope is omitted.
         const scope = await settingsTarget(deps.prisma, context.actor, "credentials", input.scope);
+        // Before confirming, which could not reveal a login only Vaultwarden holds.
+        const row = await getBotSecretMetadata(
+          deps.prisma,
+          vaultScope(context.actor, scope),
+          input.name,
+        );
+        if (row?.source === "vaultwarden") throw vaultwardenRevealError();
+        await requireIdentityConfirmation(deps.auth, context);
         const revealed = await revealBotSecret({
           prisma: deps.prisma,
           secretStore: deps.secrets,
           scope: vaultScope(context.actor, scope),
           name: input.name,
+        }).catch((error: unknown) => {
+          throw error instanceof VaultwardenManagedError ? vaultwardenRevealError() : error;
         });
         if (!revealed) throw new ORPCError("NOT_FOUND", { message: "Credential not found" });
         await recordSecurityEvent({
@@ -743,7 +754,13 @@ export function botsRoutes(ctx: RouterContext) {
         return revealed;
       }),
       remove: authed.vault.remove.handler(async ({ context, input }) => {
-        await forgetBotSecret(deps.prisma, vaultScope(context.actor, input.scope), input.name);
+        await forgetBotSecret(
+          deps.prisma,
+          vaultScope(context.actor, input.scope),
+          input.name,
+        ).catch((error: unknown) => {
+          throw mapBotSecretInputError(error);
+        });
         return { ok: true as const };
       }),
       source: {
@@ -786,11 +803,19 @@ export function botsRoutes(ctx: RouterContext) {
       }),
       remove: authed.botSecrets.remove.handler(async ({ context, input }) => {
         await repos.getBot(context.actor, input.botId);
-        await forgetBotSecret(deps.prisma, vaultScope(context.actor), input.name);
+        await forgetBotSecret(deps.prisma, vaultScope(context.actor), input.name).catch(
+          (error: unknown) => {
+            throw mapBotSecretInputError(error);
+          },
+        );
         return { ok: true as const };
       }),
     },
   };
+}
+
+function vaultwardenRevealError() {
+  return new ORPCError("FORBIDDEN", { message: new VaultwardenManagedError().message });
 }
 
 function duplicateBotName(name: string) {

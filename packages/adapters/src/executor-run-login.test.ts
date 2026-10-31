@@ -1,4 +1,5 @@
 import type { ComputerRef } from "@rakazo/adapter-kit";
+import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
 import { encodeLoginSecret } from "@rakazo/contracts";
 import { runLoginKind } from "@rakazo/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +7,7 @@ import { encodeRunLogin } from "./bot-secrets.js";
 import { builtinAgentTools } from "./builtin-tools.js";
 import type * as ComputerLifecycleModule from "./computer-lifecycle.js";
 import { createRunExecutor } from "./executor.js";
+import { CREDENTIAL_SOURCE_UNAVAILABLE } from "./run-tools.js";
 import { EncryptedSecretStore } from "./secrets.js";
 
 const COMPUTER: ComputerRef = {
@@ -100,6 +102,8 @@ async function runTool(
     secrets?: Array<Record<string, unknown>>;
     /** A login already saved in the vault under the requested name. */
     saved?: Record<string, unknown>;
+    /** Every login saved in the vault, as run start reads them to hide their passwords. */
+    logins?: Array<Record<string, unknown>>;
     /** What the shell prints. */
     printed?: string;
   } = {},
@@ -178,7 +182,10 @@ async function runTool(
       message: { create: async ({ data }: { data: object }) => ({ id: "message-1", ...data }) },
       event: { create: async ({ data }: { data: object }) => ({ seq: 1, ...data }) },
       task: { findUniqueOrThrow: async () => ({ id: run.taskId, prompt: "Sign in to the site" }) },
-      vaultCredential: { findFirst: async () => options.saved ?? null },
+      vaultCredential: {
+        findFirst: async () => options.saved ?? null,
+        findMany: async () => options.logins ?? [],
+      },
       secret: {
         findFirst: async ({ where }: { where: Record<string, unknown> }) =>
           secrets.find((row) => matches(row, where)) ?? null,
@@ -366,5 +373,78 @@ describe("forget_secret and generate_secret", () => {
     );
     expect(toolResults).toMatchObject([{ error: expect.stringContaining("Use another name") }]);
     expect(JSON.stringify(calls)).not.toContain('"vaultCredential","create"');
+  });
+});
+
+describe("a login managed in Vaultwarden", () => {
+  const managed = "This login is managed in Vaultwarden and can't be changed here.";
+  const pointer = {
+    ...DESTINATION,
+    id: "login-vw",
+    ...scope,
+    ciphertext: "vaultwarden:v1:source-1:cipher-1",
+  };
+
+  it("can't be forgotten, replaced or generated over by the bot", async () => {
+    for (const call of [
+      { name: "forget_secret", args: { name: "site_login" } },
+      requestLogin({ replace: true }),
+      { name: "generate_secret", args: { name: "site_login", type: "login", origin: ORIGIN } },
+    ]) {
+      const { toolResults, calls } = await runTool(call, { saved: pointer });
+      const recorded = JSON.stringify(calls);
+      expect(toolResults).toMatchObject([{ error: expect.any(String) }]);
+      if (call.name !== "generate_secret") expect(toolResults).toEqual([{ error: managed }]);
+      expect(recorded).not.toContain('"vaultCredential","deleteMany"');
+      expect(recorded).not.toContain('"vaultCredential","update"');
+      expect(recorded).not.toContain('"vaultCredential","create"');
+    }
+  });
+
+  it("is still answered with its saved metadata", async () => {
+    const { toolResults } = await runTool(requestLogin(), { saved: pointer });
+    expect(toolResults).toEqual([{ saved: true, ...DESTINATION }]);
+  });
+
+  it("leaves a Rakazo login to be forgotten as before", async () => {
+    const { toolResults, calls } = await runTool(
+      { name: "forget_secret", args: { name: "site_login" } },
+      { saved: { ...pointer, ciphertext: "v2:native" } },
+    );
+    expect(toolResults).toEqual([{ removed: true }]);
+    expect(JSON.stringify(calls)).toContain('"vaultCredential","deleteMany"');
+  });
+});
+
+describe("a run that starts while Vaultwarden is unreachable", () => {
+  const pointer = {
+    ...DESTINATION,
+    id: "login-vw",
+    ...scope,
+    ciphertext: "vaultwarden:v1:source-1:cipher-1",
+  };
+
+  it("pauses its computer tools and keeps the others", async () => {
+    vi.spyOn(secretStore, "load").mockRejectedValue(new SecretStoreUnavailableError());
+    for (const name of ["shell", "read_file", "browser_act"]) {
+      const { toolResults } = await runTool(
+        { name, args: { command: "true", path: "a.txt", kind: "click" } },
+        { logins: [pointer], printed: "ran" },
+      );
+      expect(toolResults).toEqual([{ error: CREDENTIAL_SOURCE_UNAVAILABLE }]);
+    }
+    const { toolResults } = await runTool(
+      { name: "list_secrets", args: {} },
+      { logins: [pointer] },
+    );
+    expect(toolResults).toEqual([[expect.objectContaining({ name: "site_login" })]]);
+  });
+
+  it("doesn't pause for a Rakazo login that can't be read", async () => {
+    const { toolResults } = await runTool(
+      { name: "shell", args: { command: "true" } },
+      { logins: [{ ...pointer, ciphertext: "not-a-ciphertext" }], printed: "ran" },
+    );
+    expect(JSON.stringify(toolResults)).toContain("ran");
   });
 });

@@ -18,6 +18,7 @@ import {
   findRunLogin,
   forgetBotSecret,
   generateBotSecret,
+  getBotSecretMetadata,
   listBotSecrets,
   normalizeSecretDestination,
   requestedLoginFields,
@@ -37,6 +38,7 @@ import {
   tryCompleteConnectionWithCode,
 } from "./run-secret.js";
 import type { ToolHandlers } from "./run-tool-gate.js";
+import { VaultwardenManagedError } from "./vaultwarden-client.js";
 
 /** Saved credentials and protected input. */
 export const secretTools: ToolHandlers = {
@@ -54,7 +56,12 @@ export const secretTools: ToolHandlers = {
       where: { userId: run.userId, spaceId: run.spaceId, kind: runLoginKind(run.id, parsed.data) },
     });
     if (forgotten.count > 0) return call.finish({ removed: true });
-    return call.finish(await forgetBotSecret(deps.prisma, run, parsed.data));
+    try {
+      return call.finish(await forgetBotSecret(deps.prisma, run, parsed.data));
+    } catch (error) {
+      if (error instanceof VaultwardenManagedError) return call.finish({ error: error.message });
+      throw error;
+    }
   },
   async generate_secret(ctx, call) {
     const { deps, run } = ctx;
@@ -111,6 +118,14 @@ export const secretTools: ToolHandlers = {
     if (loginFields?.error) return call.finish({ error: loginFields.error });
     if (destination) {
       const existing = await findBotSecret(deps.prisma, run, destination.name);
+      // A managed login keeps its saved metadata answer below; only changing it is refused.
+      if (
+        existing &&
+        (args.replace === true || !sameSecretDestination(existing, destination)) &&
+        (await getBotSecretMetadata(deps.prisma, run, destination.name))?.source === "vaultwarden"
+      ) {
+        return call.finish({ error: new VaultwardenManagedError().message });
+      }
       if (existing && !sameSecretDestination(existing, destination)) {
         return call.finish({
           error: "Remove the existing credential before changing its destination.",

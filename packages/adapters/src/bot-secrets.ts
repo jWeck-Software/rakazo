@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { SecretStore } from "@rakazo/adapter-kit";
+import { SecretNotFoundError } from "@rakazo/adapter-kit";
 import type {
   BotSecretDestination,
   LoginField,
@@ -33,7 +34,7 @@ import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { createPrivateNetworkFetch, createSafeRemoteFetch } from "./remote-mcp.js";
 import { generateSecretValue } from "./secret-generator.js";
 import { persistPreparedSecret } from "./secret-persistence.js";
-import { VAULTWARDEN_REF_PREFIX } from "./vaultwarden-client.js";
+import { isVaultwardenRef, VaultwardenManagedError } from "./vaultwarden-client.js";
 import { readBodyCapped, withAbort } from "./web-ssrf.js";
 
 /**
@@ -476,6 +477,7 @@ export async function prepareBotSecret(input: {
     where: { ...vault, name: destination.name },
   });
   function validate(row: typeof existing, count: number) {
+    if (row && isVaultwardenRef(row.ciphertext)) throw new VaultwardenManagedError();
     if (row && input.createOnly) throw new Error(SECRET_ALREADY_SAVED);
     if (row && !sameSecretDestination(normalizeSecretDestination(row), destination))
       throw new Error("Remove the existing credential before changing its destination");
@@ -657,9 +659,7 @@ export async function listBotSecrets(prisma: PrismaClient, scope: BotSecretScope
 const ownerMetadata = { ...metadata, createdAt: true, updatedAt: true, ciphertext: true } as const;
 
 function ownerMetadataView<Row extends { ciphertext: string }>({ ciphertext, ...row }: Row) {
-  const source: "rakazo" | "vaultwarden" = ciphertext.startsWith(VAULTWARDEN_REF_PREFIX)
-    ? "vaultwarden"
-    : "rakazo";
+  const source: "rakazo" | "vaultwarden" = isVaultwardenRef(ciphertext) ? "vaultwarden" : "rakazo";
   return { ...row, source };
 }
 
@@ -698,6 +698,7 @@ export async function revealBotSecret(input: {
     where: { ...(await vaultFields(input.prisma, input.scope)), name: input.name },
   });
   if (!row) return null;
+  if (isVaultwardenRef(row.ciphertext)) throw new VaultwardenManagedError();
   const plaintext = await input.secretStore.load(row.ciphertext, row.id);
   return BotSecretAuth.safeParse(row.auth).data?.type === "login"
     ? decodeLoginSecret(plaintext)
@@ -707,7 +708,10 @@ export async function revealBotSecret(input: {
 export async function forgetBotSecret(prisma: PrismaClient, scope: BotSecretScope, name: string) {
   await prisma.$transaction(async (tx) => {
     await lockVault(tx, scope);
-    await tx.vaultCredential.deleteMany({ where: { ...(await vaultFields(tx, scope)), name } });
+    const where = { ...(await vaultFields(tx, scope)), name };
+    const row = await tx.vaultCredential.findFirst({ where, select: { ciphertext: true } });
+    if (row && isVaultwardenRef(row.ciphertext)) throw new VaultwardenManagedError();
+    await tx.vaultCredential.deleteMany({ where });
   });
   return { removed: true };
 }
@@ -821,6 +825,12 @@ function passwordRedactionForms(password: string): string[] {
 }
 
 /**
+ * Whether every Vaultwarden login of the vault could be read at run start. When one couldn't,
+ * its password isn't hidden from what the run reads, so the run keeps off its computers.
+ */
+export type CredentialSourceState = "available" | "unavailable";
+
+/**
  * Redaction forms of the hidden fields of every website login saved for this bot. A filled
  * login stays on its page after the run that filled it, so each run hides them before any tool
  * output reaches the model. Visible fields stay readable outside the filling run: one is often
@@ -830,13 +840,14 @@ export async function loadLoginPasswordRedactions(
   prisma: PrismaClient,
   secretStore: Pick<SecretStore, "load">,
   scope: BotSecretScope,
-): Promise<string[]> {
+): Promise<{ redactions: string[]; credentialSource: CredentialSourceState }> {
   // Every saved login, however many other credentials the bot has.
   const rows = await prisma.vaultCredential.findMany({
     where: { ...(await vaultFields(prisma, scope)), auth: { path: ["type"], equals: "login" } },
     select: { id: true, auth: true, ciphertext: true },
   });
   const forms = new Set<string>();
+  let credentialSource: CredentialSourceState = "available";
   for (const row of rows) {
     if (BotSecretAuth.safeParse(row.auth).data?.type !== "login") continue;
     try {
@@ -846,14 +857,18 @@ export async function loadLoginPasswordRedactions(
         if (!field.hidden || field.value.length < MIN_REDACTED_HIDDEN_VALUE_EVERY_RUN) continue;
         for (const form of passwordRedactionForms(field.value)) forms.add(form);
       }
-    } catch {
-      // Like an unreadable command variable, it must not stop every computer tool. The id only:
-      // an operator can see which login is no longer hidden. Not under a "secret" key, which
-      // the logger scrubs.
+    } catch (error) {
+      // A Rakazo login must not stop every computer tool, like an unreadable command variable.
+      // A Vaultwarden one does unless Vaultwarden said it no longer has it: then Vaultwarden is
+      // down or refused us, and none of its logins are hidden. The id only: an operator can see
+      // which login is no longer hidden. Not under a "secret" key, which the logger scrubs.
+      if (isVaultwardenRef(row.ciphertext) && !(error instanceof SecretNotFoundError)) {
+        credentialSource = "unavailable";
+      }
       getLogger().warn("saved login could not be loaded for redaction", { loginId: row.id });
     }
   }
-  return [...forms];
+  return { redactions: [...forms], credentialSource };
 }
 
 /**

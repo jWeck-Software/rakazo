@@ -609,3 +609,51 @@ describe("vault router", () => {
     expect(rows).toEqual([]);
   });
 });
+
+describe("a Vaultwarden login in the vault", () => {
+  const managed = "This login is managed in Vaultwarden and can't be changed here.";
+  const pointer = {
+    id: "vw-row",
+    userId: "user-1",
+    spaceId: null,
+    name: "intranet",
+    origin: "https://intranet.example.test",
+    auth: { type: "login" },
+    ciphertext: "vaultwarden:v1:source-1:cipher-1",
+    createdAt: new Date("2026-09-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+  };
+  const login = {
+    destination: { name: "intranet", origin: pointer.origin, auth: { type: "login" } },
+    value: encodeLoginSecret({
+      fields: [{ label: "Password", value: FAKE_VALUE, hidden: true }],
+    }),
+  };
+
+  it("is never revealed, replaced or removed, and nothing reads or writes its value", async () => {
+    const { secrets, auth, rows, call } = botSecretDeps([pointer]);
+    auth.hasRecentIdentityConfirmation.mockResolvedValue(true);
+    events.record.mockClear();
+    const results = [
+      await call("vault/reveal", { name: "intranet" }),
+      await call("vault/put", login),
+      await call("vault/remove", { name: "intranet" }),
+      await call("put", { botId: "bot-1", ...login }),
+      await call("remove", { botId: "bot-1", name: "intranet" }),
+    ];
+    expect(results.map((result) => result.status)).toEqual([403, 400, 400, 400, 400]);
+    for (const result of results) expect(result.text).toContain(managed);
+    expect(secrets.load).not.toHaveBeenCalled();
+    expect(secrets.put).not.toHaveBeenCalled();
+    expect(events.record).not.toHaveBeenCalled();
+    expect(rows).toEqual([pointer]);
+  });
+
+  it("is refused before asking the person to confirm it's them", async () => {
+    const { auth, call } = botSecretDeps([pointer]);
+    const refused = await call("vault/reveal", { name: "intranet" });
+    expect(refused.status).toBe(403);
+    expect(refused.text).toContain(managed);
+    expect(auth.hasRecentIdentityConfirmation).not.toHaveBeenCalled();
+  });
+});

@@ -56,6 +56,18 @@ export function parseVaultwardenSourceSettings(value: unknown): VaultwardenSourc
 
 export const VAULTWARDEN_REF_PREFIX = "vaultwarden:v1:";
 
+/** A vault row that only points at a Vaultwarden login, which is managed only in Vaultwarden. */
+export function isVaultwardenRef(ciphertext: string): boolean {
+  return ciphertext.startsWith(VAULTWARDEN_REF_PREFIX);
+}
+
+export class VaultwardenManagedError extends Error {
+  constructor() {
+    super("This login is managed in Vaultwarden and can't be changed here.");
+    this.name = "VaultwardenManagedError";
+  }
+}
+
 /** Every vault_credentials row a source creates stores this prefix plus the cipher id as its ciphertext. */
 export function vaultwardenRefPrefix(sourceId: string): string {
   return `${VAULTWARDEN_REF_PREFIX}${sourceId}:`;

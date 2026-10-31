@@ -465,7 +465,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           savedSkills,
           agentSkills,
           initialBotCommandEnvironment,
-          savedLoginPasswordRedactions,
+          savedLogins,
           purchaseRedactions,
           runLoginRedactions,
         ] = await Promise.all([
@@ -522,11 +522,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         runSecrets.push(...commandCredentialRedactions(initialBotCommandEnvironment));
         // A login filled in an earlier run may still be on its page, and anything this run reads
         // or is given may contain it, so every run hides its saved passwords before the model runs.
-        runSecrets.push(
-          ...savedLoginPasswordRedactions,
-          ...purchaseRedactions,
-          ...runLoginRedactions,
-        );
+        runSecrets.push(...savedLogins.redactions, ...purchaseRedactions, ...runLoginRedactions);
         const agentEnvironmentInstruction = formatAgentEnvironmentInstruction(
           initialBotCommandEnvironment,
         );
@@ -1292,6 +1288,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             pageBrowserAllowed,
             acceptsImages,
             heldForTakeover,
+            credentialSource: savedLogins.credentialSource,
           },
           tools: {
             offered: tools,

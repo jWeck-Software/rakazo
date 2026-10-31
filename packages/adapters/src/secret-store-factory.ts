@@ -12,7 +12,7 @@ import type { InfisicalSecretStoreOptions } from "./infisical-secret-store.js";
 import { INFISICAL_REF_PREFIX, InfisicalSecretStore } from "./infisical-secret-store.js";
 import { SecretChanges } from "./secret-changes.js";
 import { EncryptedSecretStore } from "./secrets.js";
-import { VAULTWARDEN_REF_PREFIX } from "./vaultwarden-client.js";
+import { isVaultwardenRef } from "./vaultwarden-client.js";
 import type { VaultwardenStoreOptions } from "./vaultwarden-secret-store.js";
 import { VaultwardenSecretStore } from "./vaultwarden-secret-store.js";
 
@@ -140,15 +140,14 @@ export class ComposedSecretStore extends SecretChanges implements SecretStore {
     return record;
   }
   load(ref: string, context: SecretContext): Promise<string> {
-    if (this.vaultwarden && ref.startsWith(VAULTWARDEN_REF_PREFIX))
-      return this.vaultwarden.load(ref, context);
+    if (this.vaultwarden && isVaultwardenRef(ref)) return this.vaultwarden.load(ref, context);
     return (
       ref.startsWith(INFISICAL_REF_PREFIX) && this.remote ? this.remote : this.encrypted
     ).load(ref, context);
   }
   async delete(ref: string, context: SecretContext): Promise<void> {
     // A Vaultwarden login is only pointed at; removing the pointer leaves Vaultwarden alone.
-    if (ref.startsWith(VAULTWARDEN_REF_PREFIX)) return;
+    if (isVaultwardenRef(ref)) return;
     try {
       await (ref.startsWith(INFISICAL_REF_PREFIX) && this.remote
         ? this.remote

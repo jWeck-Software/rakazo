@@ -1,3 +1,4 @@
+import { SecretNotFoundError, SecretStoreUnavailableError } from "@rakazo/adapter-kit";
 import type { BotSecretDestination } from "@rakazo/contracts";
 import { BOT_SECRET_ORIGIN_MISSING_MESSAGE, encodeLoginSecret } from "@rakazo/contracts";
 import { redactSecrets } from "@rakazo/core";
@@ -13,9 +14,12 @@ import {
   requestWithBotSecret,
   resolveLoginFill,
   resolveRequestSecretDestination,
+  revealBotSecret,
   sameSecretDestination,
 } from "./bot-secrets.js";
+import { accountVault, fakeDatabase } from "./bot-secrets.test-support.js";
 import { EncryptedSecretStore } from "./secrets.js";
+import { VaultwardenManagedError } from "./vaultwarden-client.js";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -864,14 +868,16 @@ describe("saved website logins", () => {
       spaceSettingOverride: ownVault,
       vaultCredential: { findMany: vi.fn(async (query) => matchingRows(rows, query)) },
     } as unknown as PrismaClient;
-    expect(await loadLoginPasswordRedactions(prisma, secretStore, scope)).toContain(password);
+    expect((await loadLoginPasswordRedactions(prisma, secretStore, scope)).redactions).toContain(
+      password,
+    );
   });
 
   it("hides a saved password in its plain, URL, form and base64 forms", async () => {
     const username = "fake-user@example.test";
     const password = "fake pass!word+1";
     const { prisma } = await loginFixture(username, login.auth, login.origin, password);
-    const redactions = await loadLoginPasswordRedactions(prisma, secretStore, scope);
+    const redactions = (await loadLoginPasswordRedactions(prisma, secretStore, scope)).redactions;
     const forms = [
       password,
       encodeURIComponent(password),
@@ -884,7 +890,8 @@ describe("saved website logins", () => {
     // Only the run that fills a login hides its username.
     expect(redacted).toContain(`Signed in as ${username}`);
     expect(
-      await loadLoginPasswordRedactions(prisma, secretStore, { ...scope, userId: "user-2" }),
+      (await loadLoginPasswordRedactions(prisma, secretStore, { ...scope, userId: "user-2" }))
+        .redactions,
     ).toEqual([]);
   });
 
@@ -895,7 +902,7 @@ describe("saved website logins", () => {
       login.origin,
       "abc",
     );
-    expect(await loadLoginPasswordRedactions(prisma, secretStore, scope)).toEqual([]);
+    expect((await loadLoginPasswordRedactions(prisma, secretStore, scope)).redactions).toEqual([]);
     const fill = await resolveLoginFill({
       runId: "run-1",
       prisma,
@@ -916,10 +923,34 @@ describe("saved website logins", () => {
     const warn = vi.fn();
     const logger = vi.spyOn(Logging, "getLogger").mockReturnValue({ warn } as never);
     try {
-      expect(await loadLoginPasswordRedactions(prisma, secretStore, scope)).toEqual([]);
+      expect((await loadLoginPasswordRedactions(prisma, secretStore, scope)).redactions).toEqual(
+        [],
+      );
       expect(warn).toHaveBeenCalledWith(expect.any(String), { loginId: "login-broken" });
       // The logger's own scrubbing keeps the id readable.
       expect(Logging.redactBindings(warn.mock.calls[0]![1])).toEqual({ loginId: "login-broken" });
+    } finally {
+      logger.mockRestore();
+    }
+  });
+
+  it("pauses the run's computers only when a Vaultwarden login can't be read", async () => {
+    const native = { ...scope, ...login, id: "login-native", ciphertext: "not-a-ciphertext" };
+    const pointer = { ...native, id: "login-vw", ciphertext: "vaultwarden:v1:source-1:cipher-1" };
+    const source = async (rows: object[], error: Error) => {
+      const prisma = {
+        spaceSettingOverride: ownVault,
+        vaultCredential: { findMany: vi.fn(async () => rows) },
+      } as unknown as PrismaClient;
+      const store = { load: vi.fn(async () => Promise.reject(error)) };
+      return (await loadLoginPasswordRedactions(prisma, store, scope)).credentialSource;
+    };
+    const logger = vi.spyOn(Logging, "getLogger").mockReturnValue({ warn: vi.fn() } as never);
+    try {
+      expect(await source([pointer], new SecretStoreUnavailableError())).toBe("unavailable");
+      expect(await source([native], new SecretStoreUnavailableError())).toBe("available");
+      // Gone from Vaultwarden since the last sync, like a Rakazo login that can't be read.
+      expect(await source([pointer], new SecretNotFoundError())).toBe("available");
     } finally {
       logger.mockRestore();
     }
@@ -929,7 +960,9 @@ describe("saved website logins", () => {
     const { prisma } = await loginFixture("fake-user@example.test", { type: "bearer" });
     const load = vi.spyOn(secretStore, "load");
     try {
-      expect(await loadLoginPasswordRedactions(prisma, secretStore, scope)).toEqual([]);
+      expect((await loadLoginPasswordRedactions(prisma, secretStore, scope)).redactions).toEqual(
+        [],
+      );
       expect(load).not.toHaveBeenCalled();
     } finally {
       load.mockRestore();
@@ -1028,7 +1061,7 @@ describe("saved website logins", () => {
 
     it("hides only hidden fields long enough in every run", async () => {
       const { prisma } = await fieldsFixture();
-      const redactions = await loadLoginPasswordRedactions(prisma, secretStore, scope);
+      const redactions = (await loadLoginPasswordRedactions(prisma, secretStore, scope)).redactions;
       expect(redactions).toEqual(expect.arrayContaining(["+1 555 0100", "%2B1%20555%200100"]));
       for (const value of ["fake-id-1234", "4321", "nyc"]) expect(redactions).not.toContain(value);
     });
@@ -1186,5 +1219,24 @@ describe("logins kept for one run", () => {
     const redacted = redactSecrets(forms.join("\n"), redactions);
     for (const form of forms) expect(redacted).not.toContain(form);
     expect(await loadRunLoginRedactions(prisma, secretStore, scope, "run-2")).toEqual([]);
+  });
+});
+
+describe("revealBotSecret", () => {
+  it("never reads a login only Vaultwarden holds", async () => {
+    const db = fakeDatabase();
+    db.rows().push({
+      ...accountVault,
+      id: "login-vw",
+      name: "intranet",
+      origin: "https://intranet.example.test",
+      auth: { type: "login" },
+      ciphertext: "vaultwarden:v1:source-1:cipher-1",
+    });
+    const store = { load: vi.fn(async () => "") };
+    await expect(
+      revealBotSecret({ prisma: db.prisma, secretStore: store, scope, name: "intranet" }),
+    ).rejects.toBeInstanceOf(VaultwardenManagedError);
+    expect(store.load).not.toHaveBeenCalled();
   });
 });

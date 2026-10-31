@@ -20,6 +20,7 @@ import {
   USER_COMPUTER_ACT_TOOL,
   USER_COMPUTER_OBSERVE_TOOL,
   USER_COMPUTER_SHELL_TOOL,
+  USER_COMPUTER_TOOLS,
   userComputerAct,
   userComputerObserve,
   userComputerShell,
@@ -42,6 +43,22 @@ const TOOL_HANDLERS = new Map<string, ToolHandler>([
   ...Object.entries(preferenceTools),
   ...[...PAGE_BROWSER_TOOL_NAMES].map((name) => [name, pageBrowserTool] as const),
 ]);
+
+/** Every tool that acts on or reads from a computer, the bot's or the person's own. */
+const COMPUTER_TOOL_NAMES: ReadonlySet<string> = new Set([
+  ...Object.keys(computerTools),
+  ...PAGE_BROWSER_TOOL_NAMES,
+  ...USER_COMPUTER_TOOLS,
+  "list_files",
+  "read_file",
+  "write_file",
+  "attach_file",
+  "render_plot",
+  "request_takeover",
+]);
+
+export const CREDENTIAL_SOURCE_UNAVAILABLE =
+  "Vaultwarden isn't reachable, so computer tools are paused for this run.";
 
 function toolHandler(name: string): ToolHandler {
   return (
@@ -82,6 +99,9 @@ async function dispatchTool(
   }
   if (ctx.tools.disabled.has(name)) {
     return { error: "This tool is disabled for this bot." };
+  }
+  if (ctx.computer.credentialSource === "unavailable" && COMPUTER_TOOL_NAMES.has(name)) {
+    return { error: CREDENTIAL_SOURCE_UNAVAILABLE };
   }
   if (PAGE_BROWSER_TOOL_NAMES.has(name) && !ctx.computer.pageBrowserAllowed) {
     return { error: "Page browser is unavailable on this computer." };

@@ -18,6 +18,7 @@ import { getLogger } from "@rakazo/logging";
 import type { ApprovalPausedToolResult, ApprovedEffectReplayQueue } from "./approval-effect.js";
 import { approvalPausedToolResult, approvedEffectOccurrence } from "./approval-effect.js";
 import type { loadBotMessageContext } from "./bot-messages.js";
+import type { CredentialSourceState } from "./bot-secrets.js";
 import { partitionTools } from "./builtin-tool-bridge.js";
 import type { ComputerExecutionLease } from "./computer-lifecycle.js";
 import type { UnchangedVisualStreak } from "./computer-tools.js";
@@ -180,6 +181,8 @@ export interface RunComputerContext {
   pageBrowserAllowed: boolean;
   acceptsImages: boolean;
   heldForTakeover: boolean;
+  /** Unavailable pauses every computer tool for the run, see loadLoginPasswordRedactions. */
+  credentialSource: CredentialSourceState;
 }
 
 export interface RunSource {
