@@ -27,6 +27,8 @@ import type { MemoryProviderResolver } from "./memory-provider-factory.js";
 import { deliverMessagingOutbound, mirrorMessagingOutbound } from "./messaging-delivery.js";
 import { pollPurchase } from "./purchase-poll.js";
 import { expireTaughtSkillTeaching } from "./teaching-session.js";
+import { vaultwardenTransport } from "./vaultwarden-secret-store.js";
+import { syncCredentialSource } from "./vaultwarden-sync.js";
 
 type Tenant = { spaceId: string; userId: string };
 
@@ -68,6 +70,8 @@ export function createBackgroundJobHandlers(deps: {
   cloudAgent?: CloudAgentConnection | null;
   paymentWallet?: PaymentWalletProvider | null;
   notifications?: ExpoPushProvider;
+  /** The instance flag (`MCP_ALLOW_PRIVATE_ENDPOINT`) that also governs a Vaultwarden endpoint. */
+  mcpAllowPrivateEndpoint?: boolean;
 }): BackgroundJobHandlers {
   const messagingDeps = deps.messaging
     ? {
@@ -109,6 +113,19 @@ export function createBackgroundJobHandlers(deps: {
     deps.prisma.cloudAgent.findUnique({ where: { id: agentId }, select: OWNER });
   const purchase = ({ purchaseId }: { purchaseId: string }) =>
     deps.prisma.purchase.findUnique({ where: { id: purchaseId }, select: OWNER });
+  const credentialSync = {
+    prisma: deps.prisma,
+    secrets: deps.secretStore,
+    transport: vaultwardenTransport(deps.mcpAllowPrivateEndpoint === true),
+  };
+  // An account vault source has no Space; its rows are visible to the member from any Space.
+  const credentialSource = async ({ sourceId }: { sourceId: string }) => {
+    const row = await deps.prisma.credentialSource.findUnique({
+      where: { id: sourceId },
+      select: OWNER,
+    });
+    return row && { userId: row.userId, spaceId: row.spaceId ?? "" };
+  };
   const updatedComputer = async ({ updateId }: { updateId: string }) =>
     (
       await deps.prisma.computerUpdate.findUnique({
@@ -195,6 +212,9 @@ export function createBackgroundJobHandlers(deps: {
     "push.receipt": async (payload) => {
       await runAsSystem("check a push receipt", () => deps.notifications?.checkReceipt(payload));
     },
+    "credential_source.sync": asOwner(credentialSource, async (payload) => {
+      await syncCredentialSource(credentialSync, payload.sourceId);
+    }),
     "history.compact": asOwner(thread, async (payload) => {
       // Retrieval policies use stored context without paid message-count compaction.
       // Skip legacy backlog work after a policy change.

@@ -9,7 +9,6 @@ import type {
 } from "@rakazo/adapters";
 import {
   assertVaultInUse,
-  createSafeRemoteFetch,
   createVaultwardenClient,
   deriveVaultwardenCredentials,
   lockVault,
@@ -21,6 +20,7 @@ import {
   VaultwardenUnavailableError,
   vaultFields,
   vaultwardenRefPrefix,
+  vaultwardenTransport,
 } from "@rakazo/adapters";
 import type {
   CredentialSourceCollection,
@@ -73,15 +73,7 @@ function vaultwardenError(error: unknown): unknown {
 }
 
 function transport(deps: CredentialSourceDeps): VaultwardenTransport {
-  const allowPrivateEndpoint = deps.env?.mcpAllowPrivateEndpoint === true;
-  return {
-    fetch: createSafeRemoteFetch(
-      deps.remoteConnectors?.fetch,
-      deps.remoteConnectors?.resolveHostname,
-      { allowPrivateEndpoint },
-    ),
-    allowPrivateEndpoint,
-  };
+  return vaultwardenTransport(deps.env?.mcpAllowPrivateEndpoint === true, deps.remoteConnectors);
 }
 
 function secretContext(scope: BotSecretScope, signal?: AbortSignal): AdapterContext {

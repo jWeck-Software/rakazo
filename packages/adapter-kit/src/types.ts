@@ -758,6 +758,8 @@ export interface BackgroundJobPayloads {
   "purchase.poll": { purchaseId: string };
   /** Read an Expo push receipt; the token is identified by its digest, never stored. */
   "push.receipt": { userId: string; ticketId: string; tokenDigest: string };
+  /** Refresh the logins a vault reads from its password manager. */
+  "credential_source.sync": { sourceId: string };
 }
 
 export type BackgroundJobName = keyof BackgroundJobPayloads;

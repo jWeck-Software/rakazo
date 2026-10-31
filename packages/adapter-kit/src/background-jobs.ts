@@ -35,6 +35,7 @@ const payloadSchemas = {
     ticketId: z.string().min(1),
     tokenDigest: z.string().min(1),
   }),
+  "credential_source.sync": z.object({ sourceId: z.string().min(1) }),
 } satisfies { [Name in BackgroundJobName]: z.ZodType<BackgroundJobPayloads[Name]> };
 
 export function parseBackgroundJob(name: string, payload: unknown): BackgroundJob {
@@ -208,5 +209,13 @@ export function purchasePollJob(purchaseId: string, availableAt?: Date): Backgro
     payload: { purchaseId },
     replaceKey: `purchase.poll:${purchaseId}`,
     ...(availableAt ? { availableAt } : {}),
+  };
+}
+
+export function credentialSourceSyncJob(sourceId: string): BackgroundJob {
+  return {
+    name: "credential_source.sync",
+    payload: { sourceId },
+    replaceKey: `credential_source.sync:${sourceId}`,
   };
 }

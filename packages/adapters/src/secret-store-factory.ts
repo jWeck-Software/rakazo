@@ -12,6 +12,8 @@ import type { InfisicalSecretStoreOptions } from "./infisical-secret-store.js";
 import { INFISICAL_REF_PREFIX, InfisicalSecretStore } from "./infisical-secret-store.js";
 import { SecretChanges } from "./secret-changes.js";
 import { EncryptedSecretStore } from "./secrets.js";
+import type { VaultwardenStoreOptions } from "./vaultwarden-secret-store.js";
+import { VAULTWARDEN_REF_PREFIX, VaultwardenSecretStore } from "./vaultwarden-secret-store.js";
 
 export function secretStoreOptionsFromEnv(
   source: NodeJS.ProcessEnv,
@@ -78,12 +80,15 @@ export class ComposedSecretStore extends SecretChanges implements SecretStore {
   private starting?: Promise<void>;
   private unsubscribe?: () => Promise<void>;
   private readonly subscriptions: Array<() => void> = [];
+  private readonly vaultwarden?: VaultwardenSecretStore;
   constructor(
     private readonly encrypted: SecretStore,
     private readonly remote?: InfisicalSecretStore,
     private readonly realtime?: RealtimeFanout,
+    vaultwarden?: VaultwardenStoreOptions,
   ) {
     super();
+    this.vaultwarden = vaultwarden && new VaultwardenSecretStore(vaultwarden, this);
     for (const store of remote ? [encrypted, remote] : [encrypted])
       this.subscriptions.push(store.onChange((ref) => this.changed(ref)));
   }
@@ -134,11 +139,15 @@ export class ComposedSecretStore extends SecretChanges implements SecretStore {
     return record;
   }
   load(ref: string, context: SecretContext): Promise<string> {
+    if (this.vaultwarden && ref.startsWith(VAULTWARDEN_REF_PREFIX))
+      return this.vaultwarden.load(ref, context);
     return (
       ref.startsWith(INFISICAL_REF_PREFIX) && this.remote ? this.remote : this.encrypted
     ).load(ref, context);
   }
   async delete(ref: string, context: SecretContext): Promise<void> {
+    // A Vaultwarden login is only pointed at; removing the pointer leaves Vaultwarden alone.
+    if (ref.startsWith(VAULTWARDEN_REF_PREFIX)) return;
     try {
       await (ref.startsWith(INFISICAL_REF_PREFIX) && this.remote
         ? this.remote
@@ -155,6 +164,7 @@ export class ComposedSecretStore extends SecretChanges implements SecretStore {
   async close(): Promise<void> {
     this.closed = true;
     await this.remote?.close();
+    this.vaultwarden?.close();
     for (const stop of this.subscriptions) stop();
     await this.starting?.catch(() => undefined);
     try {
@@ -172,14 +182,16 @@ export function createSecretStore(
   encryptionKey: string,
   source: NodeJS.ProcessEnv = process.env,
   realtime?: RealtimeFanout,
+  vaultwarden?: VaultwardenStoreOptions,
 ): SecretStore {
   const options = secretStoreOptionsFromEnv(source);
   const encrypted = new EncryptedSecretStore(encryptionKey);
-  return options || realtime
+  return options || realtime || vaultwarden
     ? new ComposedSecretStore(
         encrypted,
         options ? new InfisicalSecretStore(options) : undefined,
         realtime,
+        vaultwarden,
       )
     : encrypted;
 }

@@ -16,6 +16,7 @@ import type {
   TransactionalEmailProvider,
 } from "@rakazo/adapter-kit";
 import {
+  credentialSourceSyncJob,
   SandboxDamagedError,
   SandboxRateLimitError,
   SandboxUnavailableError,
@@ -96,6 +97,7 @@ import {
   UserDevices,
   userDeviceForwardSecret,
   userDeviceInternalAddress,
+  vaultwardenTransport,
   verifyModelServesAgents,
   withSecretPersistence,
 } from "@rakazo/adapters";
@@ -311,7 +313,10 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           publisher: created.pool,
         })
       : new InMemoryRealtimeFanout());
-  const secrets = createSecretStore(env.encryptionKey, process.env, realtime);
+  const secrets = createSecretStore(env.encryptionKey, process.env, realtime, {
+    prisma,
+    transport: vaultwardenTransport(env.mcpAllowPrivateEndpoint, remoteConnectors),
+  });
   await secrets.start();
   if (secrets.describe().capabilities.degraded)
     logger.warn("Secret storage degraded; encrypted credentials remain available");
@@ -764,6 +769,11 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     composio: stack.composio,
     connectors: stack.connector,
     remoteConnectors,
+    // Never fails the connect or collection change that already committed; the sweeper retries.
+    onCredentialSourceChanged: (sourceId) =>
+      jobs
+        .enqueue(credentialSourceSyncJob(sourceId))
+        .catch((error) => logger.error("credential source sync enqueue failed", error)),
     modelConnectionFetch,
     // The scripted runtime never calls a provider, so neither does its connect.
     modelConnectionCheck: env.agentRuntime === "pi" ? verifyModelServesAgents : undefined,

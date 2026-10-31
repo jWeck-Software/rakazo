@@ -21,6 +21,7 @@ import {
   createBackgroundJobHandlers,
   createCloudAgentConnection,
   createConnectorStack,
+  createCredentialSourceSweeper,
   createDeadJobPruner,
   createIdleComputerSweeper,
   createJobReconciler,
@@ -72,6 +73,7 @@ import {
   shutdownPiTelemetry,
   UserDevices,
   userDeviceForwardSecret,
+  vaultwardenTransport,
   withRunWorker,
   withSecretPersistence,
 } from "@rakazo/adapters";
@@ -124,7 +126,11 @@ async function main() {
     connectionString: process.env.REALTIME_DATABASE_URL ?? databaseUrl,
     publisher: pool,
   });
-  const secrets = await createWorkerSecretStore(process.env, realtime);
+  const allowPrivateEndpoint = process.env.MCP_ALLOW_PRIVATE_ENDPOINT === "true";
+  const secrets = await createWorkerSecretStore(process.env, realtime, {
+    prisma,
+    transport: vaultwardenTransport(allowPrivateEndpoint),
+  });
   if (secrets.describe().capabilities.degraded)
     logger.warn("Secret storage degraded; encrypted credentials remain available");
   prisma = withSecretPersistence(prisma, secrets);
@@ -158,7 +164,6 @@ async function main() {
     dataDir,
     prisma,
   });
-  const allowPrivateEndpoint = process.env.MCP_ALLOW_PRIVATE_ENDPOINT === "true";
   const mcpOAuth = new McpOAuthBroker(prisma, secrets, {}, allowPrivateEndpoint);
   const mcpStdio = {
     stdioEnabled: process.env.MCP_STDIO_ENABLED === "true",
@@ -337,6 +342,7 @@ async function main() {
     cloudAgent,
     paymentWallet,
     notifications,
+    mcpAllowPrivateEndpoint: allowPrivateEndpoint,
   });
   const reconciler = createJobReconciler({
     prisma,
@@ -363,6 +369,7 @@ async function main() {
     reconcileAuditLog: createAuditLogReconciler(prisma, auditLogConfig()),
     reconcileHomeStorage: homeStorageSweeper(home),
     reconcileIdleComputers: createIdleComputerSweeper({ prisma, jobs }),
+    reconcileCredentialSources: createCredentialSourceSweeper({ prisma, jobs }),
     reconcileDeadJobs: inMemoryJobs ? undefined : createDeadJobPruner(pool),
   });
   let stopHealth: (() => Promise<void>) | undefined;

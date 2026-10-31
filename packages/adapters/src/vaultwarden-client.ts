@@ -169,6 +169,8 @@ const cipherSchema = z.object({
   organizationId: nullableString,
   collectionIds: z.array(z.string()).nullish(),
   viewPassword: z.boolean().nullish(),
+  /** 1 asks for the master password before use; official clients never autofill those. */
+  reprompt: z.number().nullish(),
   deletedDate: nullableString,
   login: z
     .object({
@@ -406,6 +408,7 @@ function decryptLogin(
     (cipherId !== undefined && cipher.id !== cipherId) ||
     cipher.type !== LOGIN_CIPHER ||
     cipher.deletedDate ||
+    cipher.reprompt ||
     !cipher.organizationId ||
     !cipherCollections.some((id) => collectionIds.has(id))
   )

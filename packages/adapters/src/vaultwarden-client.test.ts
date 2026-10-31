@@ -164,6 +164,16 @@ describe("VaultwardenClient", () => {
     ).toBeUndefined();
   });
 
+  it("leaves out items that ask for the master password before use", async () => {
+    const { fake, client } = setup();
+    cipher(fake.sync, websiteLogins[1]!.cipherId).reprompt = 1;
+    const logins = await client.logins({ collectionIds: [WEBSITES] });
+    expect(logins.map((login) => login.name).sort()).toEqual(["Org CipherKey", "XCheck Org"]);
+    expect(
+      await client.login({ cipherId: websiteLogins[1]!.cipherId, collectionIds: [WEBSITES] }),
+    ).toBeUndefined();
+  });
+
   it("decrypts personal items with the user key, including per-item keys and non-ASCII text", () => {
     const { fake } = setup();
     const userKey = symmetricKey(Buffer.from(fake.credentials.userKey, "base64"));

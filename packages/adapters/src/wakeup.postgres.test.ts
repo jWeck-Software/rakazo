@@ -41,6 +41,7 @@ function handlers(overrides: Partial<BackgroundJobHandlers> = {}): BackgroundJob
     "cloud_agent.poll": vi.fn(async () => undefined),
     "purchase.poll": vi.fn(async () => undefined),
     "push.receipt": vi.fn(async () => undefined),
+    "credential_source.sync": vi.fn(async () => undefined),
     ...overrides,
   };
 }
