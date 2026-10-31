@@ -300,7 +300,10 @@ async function currentSession(deps: CursorDeps, userId: string): Promise<Session
   return null;
 }
 
-/** One refresh with the refresh token from sign-in, as Cursor's CLI does. */
+/**
+ * One refresh with the refresh token from sign-in, as Cursor's CLI does. Null when Cursor
+ * refuses it; a refresh that could not be asked keeps the sign-in.
+ */
 async function renew(deps: CursorDeps, actor: Actor, session: Session): Promise<Session | null> {
   const refreshToken = session.tokens.refreshToken;
   let answer: { status: number; body: unknown } | null = null;
@@ -317,6 +320,10 @@ async function renew(deps: CursorDeps, actor: Actor, session: Session): Promise<
       });
     } catch (error) {
       warn("Cursor token refresh failed", error);
+      throw new GrokImportError("grok_unavailable");
+    }
+    if (answer.status === 429 || answer.status >= 500) {
+      throw new GrokImportError("grok_unavailable");
     }
   }
   const tokens =
