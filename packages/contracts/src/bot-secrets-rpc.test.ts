@@ -58,6 +58,7 @@ describe("botSecrets rpc contract", () => {
       "createdAt",
       "name",
       "origin",
+      "source",
       "updatedAt",
     ]);
     const parsed = BotSecretMetadata.parse({
