@@ -63,6 +63,7 @@ export const AUDITED_PROCEDURES: Record<string, AuditedProcedure> = {
   // Starting a sign-in replaces any wallet already connected.
   "paymentWallet.connect": { type: "credential.changed", kind: "payment_wallet" },
   "paymentWallet.disconnect": { type: "credential.deleted", kind: "payment_wallet" },
+  "grokImport.cursorSignOut": { type: "credential.deleted", kind: "cursor_session" },
   "deployment.update": {
     type: "deployment.settings.changed",
     fields: ["signupsEnabled", "computerHost"],
@@ -114,6 +115,19 @@ export function paymentWalletConnectedEvent(actor: {
     userId: actor.userId,
     spaceId: actor.spaceId,
     metadata: { procedure: "paymentWallet.status", kind: "payment_wallet" },
+  };
+}
+
+/** A Cursor sign-in finishing. Clients poll `grokImport.cursorSignInPoll`, so it records the transition. */
+export function cursorSignedInEvent(actor: {
+  userId: string;
+  spaceId: string;
+}): SecurityEventInput {
+  return {
+    type: "credential.created",
+    userId: actor.userId,
+    spaceId: actor.spaceId,
+    metadata: { procedure: "grokImport.cursorSignInPoll", kind: "cursor_session" },
   };
 }
 

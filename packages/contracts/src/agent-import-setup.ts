@@ -70,6 +70,10 @@ export const AGENT_IMPORT_ERROR_REASONS = [
   "key_rejected",
   "key_unverified",
   "key_check_failed",
+  "grok_not_found",
+  "grok_unavailable",
+  "cursor_signed_out",
+  "cursor_needs_grok_bot",
 ] as const;
 export type AgentImportErrorReason = (typeof AGENT_IMPORT_ERROR_REASONS)[number];
 

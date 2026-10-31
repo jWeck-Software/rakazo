@@ -7,8 +7,10 @@ import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 import {
   AgentImportCreateInput,
+  AgentImportFilesSchema,
   AgentImportPlanSchema,
   AgentImportPreviewInput,
+  CursorStatusSchema,
 } from "./agent-import.js";
 import { AgentImportSetupStateInput, AgentImportSetupStateSchema } from "./agent-import-setup.js";
 import { AiConsentQuerySchema, AiConsentStatusSchema } from "./ai-consent.js";
@@ -1268,6 +1270,21 @@ export const appContract = {
   },
   runs: {
     list: oc.input(z.object({ filter: z.enum(["active", "recent"]) })).output(RunsListOutputSchema),
+  },
+  /** A shared Grok Bot by its link. The files it gives go through `bots.importPreview`. */
+  grokImport: {
+    /** The template's whole setup, read with the user's Cursor sign-in. */
+    template: oc
+      .input(z.object({ link: z.string().trim().min(1).max(2_048) }))
+      .output(z.object({ files: AgentImportFilesSchema })),
+    cursor: oc.output(CursorStatusSchema),
+    /** The page the user approves the sign-in on, and the handle `cursorSignInPoll` takes. */
+    cursorSignIn: oc.output(z.object({ url: z.string(), pending: z.string() })),
+    /** Asks Cursor once whether the user approved. */
+    cursorSignInPoll: oc
+      .input(z.object({ pending: z.string().min(1).max(4_096) }))
+      .output(CursorStatusSchema),
+    cursorSignOut: oc.output(CursorStatusSchema),
   },
   /** The signed-in user's wallet; absent when the deployment offers none. */
   paymentWallet: {

@@ -114,6 +114,12 @@ export const GrokRecipeSchema = z.object({
 });
 export type GrokRecipe = z.infer<typeof GrokRecipeSchema>;
 
+/** The user's "Sign in with Cursor", which reads a Grok Bot template whole. Never its tokens. */
+export const CursorStatusSchema = z.object({
+  status: z.enum(["signed_out", "pending", "signed_in"]),
+});
+export type CursorStatus = z.infer<typeof CursorStatusSchema>;
+
 /**
  * Why an item may not work in Rakazo. Items with a warning start unticked;
  * `unsupported_command` cannot run at all and cannot be selected.
