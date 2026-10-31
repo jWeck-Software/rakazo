@@ -44,6 +44,7 @@ import {
   createBackgroundJobHandlers,
   createCloudAgentConnection,
   createConnectorStack,
+  createCredentialSourceSweeper,
   createIdleComputerSweeper,
   createJobReconciler,
   createMessagingContextLoader,
@@ -690,6 +691,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     messaging,
     cloudAgent,
     paymentWallet,
+    mcpAllowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
   });
   if (inMemoryJobs) {
     await inMemoryJobs.start(jobHandlers);
@@ -714,6 +716,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
         ),
         reconcileAuditLog: createAuditLogReconciler(prisma, auditLogConfig()),
         reconcileIdleComputers: createIdleComputerSweeper({ prisma, jobs }),
+        reconcileCredentialSources: createCredentialSourceSweeper({ prisma, jobs }),
       })
     : undefined;
   reconciler?.start();

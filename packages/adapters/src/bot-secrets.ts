@@ -33,7 +33,7 @@ import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { createPrivateNetworkFetch, createSafeRemoteFetch } from "./remote-mcp.js";
 import { generateSecretValue } from "./secret-generator.js";
 import { persistPreparedSecret } from "./secret-persistence.js";
-import { VAULTWARDEN_REF_PREFIX } from "./vaultwarden-secret-store.js";
+import { VAULTWARDEN_REF_PREFIX } from "./vaultwarden-client.js";
 import { readBodyCapped, withAbort } from "./web-ssrf.js";
 
 /**

@@ -14,11 +14,10 @@ import {
   createVaultwardenClient,
   parseVaultwardenCredentials,
   parseVaultwardenSourceSettings,
+  VAULTWARDEN_REF_PREFIX,
   VaultwardenAuthError,
   VaultwardenUnavailableError,
 } from "./vaultwarden-client.js";
-
-export const VAULTWARDEN_REF_PREFIX = "vaultwarden:v1:";
 
 /** Logins fetched for one run start are shared by every load in it: one sync, not one per row. */
 const SNAPSHOT_TTL_MS = 30_000;

@@ -12,8 +12,9 @@ import type { InfisicalSecretStoreOptions } from "./infisical-secret-store.js";
 import { INFISICAL_REF_PREFIX, InfisicalSecretStore } from "./infisical-secret-store.js";
 import { SecretChanges } from "./secret-changes.js";
 import { EncryptedSecretStore } from "./secrets.js";
+import { VAULTWARDEN_REF_PREFIX } from "./vaultwarden-client.js";
 import type { VaultwardenStoreOptions } from "./vaultwarden-secret-store.js";
-import { VAULTWARDEN_REF_PREFIX, VaultwardenSecretStore } from "./vaultwarden-secret-store.js";
+import { VaultwardenSecretStore } from "./vaultwarden-secret-store.js";
 
 export function secretStoreOptionsFromEnv(
   source: NodeJS.ProcessEnv,

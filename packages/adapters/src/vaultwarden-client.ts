@@ -54,9 +54,11 @@ export function parseVaultwardenSourceSettings(value: unknown): VaultwardenSourc
   return sourceSettingsSchema.parse(value);
 }
 
+export const VAULTWARDEN_REF_PREFIX = "vaultwarden:v1:";
+
 /** Every vault_credentials row a source creates stores this prefix plus the cipher id as its ciphertext. */
 export function vaultwardenRefPrefix(sourceId: string): string {
-  return `vaultwarden:v1:${sourceId}:`;
+  return `${VAULTWARDEN_REF_PREFIX}${sourceId}:`;
 }
 
 export interface VaultwardenCollection {
